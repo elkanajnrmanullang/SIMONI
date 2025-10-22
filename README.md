@@ -1,7 +1,6 @@
-<<<<<<< HEAD
 # SIMONI
 =======
-<<<<<<< Updated upstream
+
 # Sistem Informasi Monitoring Kinerja Karyawan (SIMONI)
 =======
 # Simoni
