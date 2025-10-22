@@ -1,9 +1,4 @@
-# SIMONI
-=======
-
 # Sistem Informasi Monitoring Kinerja Karyawan (SIMONI)
-=======
-# Simoni
 
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) ![Laravel](https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white) ![Firebase](https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=firebase&logoColor=white) ![Status](https://img.shields.io/badge/Status-In%20Development-blue.svg)
 
