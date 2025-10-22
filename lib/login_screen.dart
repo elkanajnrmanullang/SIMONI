@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:simoni/home_screen.dart';
+// (Ganti 'simoni' dengan nama project-mu jika berbeda)
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -35,14 +37,35 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     String email = _emailController.text;
-    String password = _passwordController.text;
+    String idPegawai = _passwordController.text;
 
     await Future.delayed(const Duration(seconds: 2));
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+    const String dummyEmail = 'dispang@gmail.com';
+    const String dummyIdPegawai = '123dispang456';
+
+    if (email == dummyEmail && idPegawai == dummyIdPegawai) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Email atau ID Pegawai salah',
+              style: GoogleFonts.poppins(color: Colors.white),
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
