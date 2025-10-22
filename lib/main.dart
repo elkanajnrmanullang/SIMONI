@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:simoni/splash_screen.dart'; 
+import 'package:simoni/splash_screen.dart';
 
 void main() {
   runApp(const MyApp());
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -11,10 +12,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SIMONI App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const SplashScreen(), 
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
