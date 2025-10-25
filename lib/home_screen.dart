@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:simoni/all_reports.dart';
 import 'package:simoni/task_list.dart';
 
 enum TaskStatus { completed, pending, cancelled, inProgress }
@@ -357,7 +358,12 @@ class _ActionButtons extends StatelessWidget {
           icon: Icons.snippet_folder_outlined,
           title: 'Laporan',
           iconColor: iconColor,
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AllReportsPage()),
+            );
+          },
         ),
         const SizedBox(width: 16.0),
         _buildActionButton(
