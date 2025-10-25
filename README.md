@@ -62,3 +62,5 @@ Berikut adalah panduan umum untuk menyiapkan proyek ini di lingkungan pengembang
 -   **Backend Developers**: Muhammad Fauzi Azizi, Fiqri Aldiansyah
 -   **UI/UX, QA, & Dokumentasi**: Asavira Azzahra, Zulfa Puri Anjani
 >>>>>>> main
+
+## Nyoba push 
