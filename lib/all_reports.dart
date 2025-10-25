@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:simoni/add_reports.dart';
 
 class AllReportsPage extends StatefulWidget {
   const AllReportsPage({Key? key}) : super(key: key);
@@ -260,8 +261,10 @@ class _AllReportsPageState extends State<AllReportsPage> {
       // Bottom navigation with FAB
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Navigate to add report page
-          // Navigator.push(context, MaterialPageRoute(builder: (context) => AddReportPage()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AddReportPage()),
+          );
         },
         backgroundColor: const Color(0xFF2D9F8F),
         child: const Icon(Icons.add, color: Colors.white),
