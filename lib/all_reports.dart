@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:simoni/add_reports.dart';
+import 'package:simoni/download_reports.dart';
+import 'package:simoni/home_screen.dart';
 
 class AllReportsPage extends StatefulWidget {
   const AllReportsPage({Key? key}) : super(key: key);
@@ -123,11 +125,12 @@ class _AllReportsPageState extends State<AllReportsPage> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
-                          setState(() {
-                            showAllReports = false;
-                          });
-                          // Navigate to download reports page
-                          // Navigator.push(context, MaterialPageRoute(builder: (context) => DownloadReportsPage()));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DownloadReportsPage(),
+                            ),
+                          );
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: !showAllReports
@@ -281,7 +284,10 @@ class _AllReportsPageState extends State<AllReportsPage> {
             children: [
               IconButton(
                 icon: const Icon(Icons.home_outlined),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.pop(context);
+                  MaterialPageRoute(builder: (context) => const HomeScreen());
+                },
                 color: Colors.grey,
               ),
               IconButton(

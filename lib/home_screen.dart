@@ -369,7 +369,7 @@ class _ActionButtons extends StatelessWidget {
         _buildActionButton(
           context: context,
           icon: Icons.assignment_outlined,
-          title: 'lorem ipsum',
+          title: 'Presensi',
           iconColor: iconColor,
           onTap: () {},
         ),
