@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "681511284669",
+    "firebase_url": "https://simoni-59fe4-default-rtdb.firebaseio.com",
+    "project_id": "simoni-59fe4",
+    "storage_bucket": "simoni-59fe4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:681511284669:android:2b688b73bed4930060ecd4",
+        "android_client_info": {
+          "package_name": "com.dispang.simoni"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANzW0T4ctUjfa_nN_aVP78Iy0LZbe4iCE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
