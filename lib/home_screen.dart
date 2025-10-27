@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:simoni/all_reports.dart';
 import 'package:simoni/task_list.dart';
+import 'package:simoni/models/user_model.dart'; // <-- IMPORT MODEL
 
 enum TaskStatus { completed, pending, cancelled, inProgress }
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  // --- TAMBAHKAN INI ---
+  final UserModel user;
+  const HomeScreen({super.key, required this.user});
+  // ---------------------
 
   final Color primaryColor = const Color(0xFF00D1C1);
   final Color darkBlue = const Color(0xFF1F2937);
@@ -26,17 +31,19 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.0),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: 24.0),
-                    _Header(),
-                    SizedBox(height: 24.0),
-                    _SearchBar(),
-                    SizedBox(height: 32.0),
-                    _TaskSummaryHeader(),
+                    const SizedBox(height: 24.0),
+                    // --- KIRIM DATA USER KE HEADER ---
+                    _Header(userName: user.nama),
+                    // ---------------------------------
+                    const SizedBox(height: 24.0),
+                    const _SearchBar(),
+                    const SizedBox(height: 32.0),
+                    const _TaskSummaryHeader(),
                   ],
                 ),
               ),
@@ -51,6 +58,7 @@ class HomeScreen extends StatelessWidget {
                 child: _ActionButtons(
                   primaryColor: primaryColor,
                   darkBlue: darkBlue,
+                  user: user,
                 ),
               ),
               const SizedBox(height: 32.0),
@@ -75,7 +83,10 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  // --- UBAH BAGIAN INI ---
+  final String userName;
+  const _Header({required this.userName});
+  // -----------------------
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +107,7 @@ class _Header extends StatelessWidget {
               ),
             ),
             Text(
-              'Zaza Safira',
+              userName, // <-- GANTI DARI "Zaza Safira"
               style: GoogleFonts.poppins(
                 fontSize: 20.0,
                 fontWeight: FontWeight.bold,
@@ -133,6 +144,10 @@ class _Header extends StatelessWidget {
     );
   }
 }
+
+// ... (Sisa kode di home_screen.dart tetap sama)
+// ... (_SearchBar, _TaskSummaryHeader, _TaskSummaryCards, dll)
+// ... (Saya akan potong di sini agar tidak terlalu panjang)
 
 class _SearchBar extends StatelessWidget {
   const _SearchBar();
@@ -294,7 +309,7 @@ class _TaskSummaryCards extends StatelessWidget {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(16.0),
       ),
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(14.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -327,8 +342,9 @@ class _TaskSummaryCards extends StatelessWidget {
 }
 
 class _ActionButtons extends StatelessWidget {
-  const _ActionButtons({required this.primaryColor, required this.darkBlue});
+  const _ActionButtons({required this.primaryColor, required this.darkBlue, required this.user});
 
+  final UserModel user;
   final Color primaryColor;
   final Color darkBlue;
 
@@ -357,13 +373,18 @@ class _ActionButtons extends StatelessWidget {
           icon: Icons.snippet_folder_outlined,
           title: 'Laporan',
           iconColor: iconColor,
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AllReportsPage(user: user)),
+            );
+          },
         ),
         const SizedBox(width: 16.0),
         _buildActionButton(
           context: context,
           icon: Icons.assignment_outlined,
-          title: 'lorem ipsum',
+          title: 'Presensi',
           iconColor: iconColor,
           onTap: () {},
         ),
