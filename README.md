@@ -63,4 +63,4 @@ Berikut adalah panduan umum untuk menyiapkan proyek ini di lingkungan pengembang
 -   **UI/UX, QA, & Dokumentasi**: Asavira Azzahra, Zulfa Puri Anjani
 >>>>>>> main
 
-## Nyoba push 
+## Nyoba push lagi ya
