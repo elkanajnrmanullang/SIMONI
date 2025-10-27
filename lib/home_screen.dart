@@ -58,6 +58,7 @@ class HomeScreen extends StatelessWidget {
                 child: _ActionButtons(
                   primaryColor: primaryColor,
                   darkBlue: darkBlue,
+                  user: user,
                 ),
               ),
               const SizedBox(height: 32.0),
@@ -341,8 +342,9 @@ class _TaskSummaryCards extends StatelessWidget {
 }
 
 class _ActionButtons extends StatelessWidget {
-  const _ActionButtons({required this.primaryColor, required this.darkBlue});
+  const _ActionButtons({required this.primaryColor, required this.darkBlue, required this.user});
 
+  final UserModel user;
   final Color primaryColor;
   final Color darkBlue;
 
@@ -374,7 +376,7 @@ class _ActionButtons extends StatelessWidget {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const AllReportsPage()),
+              MaterialPageRoute(builder: (context) => AllReportsPage(user: user)),
             );
           },
         ),
@@ -382,7 +384,7 @@ class _ActionButtons extends StatelessWidget {
         _buildActionButton(
           context: context,
           icon: Icons.assignment_outlined,
-          title: 'lorem ipsum',
+          title: 'Presensi',
           iconColor: iconColor,
           onTap: () {},
         ),

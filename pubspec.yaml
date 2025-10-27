@@ -15,6 +15,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1
   intl: ^0.18.0
+  image_picker: ^1.0.4
 
   # Dependensi Firebase yang baru ditambahkan
   firebase_core: ^2.31.0

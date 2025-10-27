@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:simoni/add_reports.dart';
+import 'package:simoni/download_reports.dart';
+import 'package:simoni/home_screen.dart';
+import 'package:simoni/models/user_model.dart';
 
 class AllReportsPage extends StatefulWidget {
-  const AllReportsPage({Key? key}) : super(key: key);
+  final UserModel user; // <-- TAMBAHKAN FIELD INI
+  const AllReportsPage({Key? key, required this.user}) : super(key: key); // <-- UPDATE KONSTRUKTOR
 
   @override
   State<AllReportsPage> createState() => _AllReportsPageState();
@@ -122,11 +127,12 @@ class _AllReportsPageState extends State<AllReportsPage> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
-                          setState(() {
-                            showAllReports = false;
-                          });
-                          // Navigate to download reports page
-                          // Navigator.push(context, MaterialPageRoute(builder: (context) => DownloadReportsPage()));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DownloadReportsPage(),
+                            ),
+                          );
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: !showAllReports
@@ -260,8 +266,10 @@ class _AllReportsPageState extends State<AllReportsPage> {
       // Bottom navigation with FAB
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Navigate to add report page
-          // Navigator.push(context, MaterialPageRoute(builder: (context) => AddReportPage()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AddReportPage()),
+          );
         },
         backgroundColor: const Color(0xFF2D9F8F),
         child: const Icon(Icons.add, color: Colors.white),
@@ -278,7 +286,12 @@ class _AllReportsPageState extends State<AllReportsPage> {
             children: [
               IconButton(
                 icon: const Icon(Icons.home_outlined),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => HomeScreen(user: widget.user)),
+                  );
+                },
                 color: Colors.grey,
               ),
               IconButton(
