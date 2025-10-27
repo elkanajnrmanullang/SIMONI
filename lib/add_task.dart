@@ -10,6 +10,7 @@ class TambahTugasScreen extends StatefulWidget {
 
 class _TambahTugasScreenState extends State<TambahTugasScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _scrollController = ScrollController();
 
   // Form controllers / state
   final TextEditingController _judulController = TextEditingController();
@@ -42,17 +43,28 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSelectedDate();
+    });
+  }
+
+  @override
   void dispose() {
     _judulController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  // Calendar functions
+  // ==========================
+  // 📅 Calendar Helper Functions
+  // ==========================
+
   List<DateTime> _getWeekDays() {
     DateTime now = _selectedDate;
-    int currentWeekday = now.weekday;
-    DateTime startOfWeek = now.subtract(Duration(days: currentWeekday - 1));
-
+    DateTime startOfWeek = now.subtract(Duration(days: 3)); // Start 3 days before
+    
     List<DateTime> weekDays = [];
     for (int i = 0; i < 7; i++) {
       weekDays.add(startOfWeek.add(Duration(days: i)));
@@ -60,8 +72,18 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
     return weekDays;
   }
 
+  void _scrollToSelectedDate() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        (45.0 + 8.0) * 3, // Width of each date item + spacing, multiplied by 3 for center
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   String _getDayName(DateTime date) {
-    const days = ['Sen', 'Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum'];
+    const days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
     return days[date.weekday - 1];
   }
 
@@ -73,8 +95,12 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
       } else {
         _selectedMonth--;
       }
-      // Update selected date to first day of new month
-      _selectedDate = DateTime(_selectedYear, _selectedMonth, 1);
+
+      int maxDay = DateUtils.getDaysInMonth(_selectedYear, _selectedMonth);
+      int newDay = _selectedDate.day.clamp(1, maxDay);
+
+      _selectedDate = DateTime(_selectedYear, _selectedMonth, newDay);
+      _scrollToSelectedDate();
     });
   }
 
@@ -86,8 +112,12 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
       } else {
         _selectedMonth++;
       }
-      // Update selected date to first day of new month
-      _selectedDate = DateTime(_selectedYear, _selectedMonth, 1);
+
+      int maxDay = DateUtils.getDaysInMonth(_selectedYear, _selectedMonth);
+      int newDay = _selectedDate.day.clamp(1, maxDay);
+
+      _selectedDate = DateTime(_selectedYear, _selectedMonth, newDay);
+      _scrollToSelectedDate();
     });
   }
 
