@@ -35,82 +35,6 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
     'Pengawasan & Keamanan Pangan',
   ];
 
-  // Sample participants with avatars
-  final List<Map<String, dynamic>> _availableParticipants =
-  [
-    {
-      'id': '1',
-      'name': 'Siti Nurhayati',
-      'role': 'Kepala UPTD',
-      'avatar': '👩',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '2',
-      'name': 'Bambang Supriyanto',
-      'role': 'Kepala Subag. umum',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '3',
-      'name': 'Indah Lestari',
-      'role': 'Kepala Mutu Pangan',
-      'avatar': '👩',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '4',
-      'name': 'Nova Putri',
-      'role': 'Pengendali Mutu',
-      'avatar': '👩',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '5',
-      'name': 'Rudiyanto',
-      'role': 'Kepala Seksi Keamanan',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '6',
-      'name': 'Fajar Nugroho',
-      'role': 'Pranata Komputer',
-      'avatar': '👨',
-      'color':Colors.grey[400]!,
-    },
-    {
-      'id': '7',
-      'name': 'Dedi Kurnia',
-      'role': 'Staf Pengolahan Data',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '8',
-      'name': 'Sumarno',
-      'role': 'Staf Logistik',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '9',
-      'name': 'Laily Sari',
-      'role': 'Pengawas Mutu Senior',
-      'avatar': '👩',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '10',
-      'name': 'Hendra Wijaya',
-      'role': 'Teknisi Laboratorium',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-  ];
-
-
   // Sample data untuk tasks yang ada (contoh)
   // Ganti dengan data sebenarnya dari database/API Anda
   final List<Map<String, dynamic>> _existingTasks = [
@@ -276,24 +200,6 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
     return DateFormat('d MMM, HH:mm').format(dt);
   }
   
-
-  void _togglePeserta(Map<String, dynamic> participant) {
-    setState(() {
-      final index = _peserta.indexWhere(
-        (p) => p['name'] == participant['name'],
-      );
-      if (index >= 0) {
-        _peserta.removeAt(index);
-      } else {
-        _peserta.add(participant);
-      }
-    });
-  }
-
-  bool _isPesertaSelected(Map<String, dynamic> participant) {
-    return _peserta.any((p) => p['name'] == participant['name']);
-  }
-
   Future<void> _navigateToAddParticipants() async {
   final result = await Navigator.push<List<Map<String, dynamic>>>(
     context,
@@ -323,10 +229,10 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
       );
       return;
     }
-    if (_mulai == null || _selesai == null) {
+    if (_selectedKategori == null ) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Silakan pilih waktu mulai dan selesai'),
+          content: Text('Silakan pilih kategori tugas/kegiatan'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -340,16 +246,79 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
 
     setState(() => _isSubmitting = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tugas berhasil dibuat!'),
-        backgroundColor: Color(0xFF4CAF50),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    showDialog(
+  context: context,
+  barrierDismissible: false, // tidak bisa ditutup klik luar
+  builder: (BuildContext context) {
+    Future.delayed(const Duration(seconds: 2), () {
+      Navigator.of(context, rootNavigator: true).pop(); // tutup dialog
+      if (mounted){
+      Navigator.of(context).pop();
+      } // kembali ke layar sebelumnya
+    });
 
-    Navigator.of(context).pop();
-  }
+    return Dialog(
+  backgroundColor: Colors.white,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(20),
+  ),
+  child: Padding(
+    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white, // background putih
+            border: Border.all(
+              color: const Color(0xFF2D7063), // warna hijau border
+              width: 4,
+            ),
+            boxShadow: [
+              BoxShadow(
+                // ignore: deprecated_member_use
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.check_rounded,
+            color: Color(0xFF2D7063),
+            size: 45,
+          ),
+        ),
+
+        const SizedBox(height: 20),
+        const Text(
+          'Tersimpan!',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Tugas Anda Berhasil Diunggah.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.black54,
+            fontFamily: 'Poppins',
+          ),
+        ),
+      ],
+    ),
+  ),
+);
+  },
+);  } 
 
   @override
   Widget build(BuildContext context) {
@@ -405,7 +374,8 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  // ignore: deprecated_member_use
+                  color: Colors.black.withOpacity(0.5),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -627,13 +597,13 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                               border: Border.all(
                                 color: isSelected
                                     ? const Color(0xFF4DB6AC)
-                                    : Colors.grey.shade300,
+                                    : Colors.grey.shade400,
                               ),
                             ),
                             child: Text(
                               kategori,
                               style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.grey[700],
+                                color: isSelected ? Colors.white : Colors.grey[400],
                                 fontSize: 13,
                                 fontFamily: 'Poppins',
                               ),
@@ -647,44 +617,47 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                     // Waktu Section
                     Row(
                       children: [
-                        Expanded(
+                        Flexible(
+                          flex : 3,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
                                 'Mulai',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.black87,
                                   fontFamily: 'Poppins',
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 12),
                               GestureDetector(
                                 onTap: () => _pickDateTime(isMulai : true),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
-                                    vertical: 12,
+                                    vertical: 10,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         _formatDateTimeShort(_mulai),
                                         style: TextStyle(
                                           color: Colors.grey[800],
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
                                           fontFamily: 'Poppins',
                                         ),
                                       ),
                                 
+                                      const SizedBox(width : 4),
                                       Icon(
                                         Icons.keyboard_arrow_down,
                                         color: Colors.grey[800],
@@ -697,8 +670,9 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
+                        const SizedBox(width: 40),
+                        Flexible(
+                          flex : 3,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -711,19 +685,20 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                                   fontFamily: 'Poppins',
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 12),
                               GestureDetector(
                                 onTap: () => _pickDateTime(isMulai: false),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
-                                    vertical: 12,
+                                    vertical: 10,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
@@ -731,11 +706,12 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                                         style: TextStyle(
                                           color: Colors.grey[800],
                                           fontSize: 13,
-                                          fontWeight: FontWeight.w500,
+                                          fontWeight: FontWeight.w600,
                                           fontFamily: 'Poppins',
                                         ),
                                       ),
                                       
+                                      const SizedBox(width : 4),
                                       Icon(
                                         Icons.keyboard_arrow_down,
                                         color: Colors.grey[800],
@@ -750,19 +726,9 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 40),
 
                     // Tambah Peserta Section
-const Text(
-  'Peserta',
-  style: TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: Colors.black87,
-    fontFamily: 'Poppins',
-  ),
-),
-const SizedBox(height: 12),
 
 Row(
   crossAxisAlignment: CrossAxisAlignment.center,
@@ -771,16 +737,15 @@ Row(
     GestureDetector(
       onTap: _navigateToAddParticipants,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.grey.shade400, width: 1.5),
-          color: Colors.white,
+          border: Border.all(color: const Color(0xFF2D7063), width: 1.5),
         ),
         child: Icon(
           Icons.add,
-          color: Colors.grey.shade700,
+          color: const Color(0xFF2D7063),
           size: 24,
         ),
       ),
@@ -792,66 +757,95 @@ Row(
       child: GestureDetector(
         onTap: _navigateToAddParticipants,
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12, 
+            vertical: 12
+            ),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: _peserta.isEmpty
               ? Text(
                   'Tambah Peserta',
                   style: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontSize: 14,
+                    color: Colors.black87,
+                    fontSize: 16,
                     fontWeight: FontWeight.w500,
                     fontFamily: 'Poppins',
                   ),
                 )
-              : Row(
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    //Judul
+                    const Text(
+                      'Peserta',
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
                     // Tampilkan avatar peserta
-                    Expanded(
-                      child: Wrap(
-                        spacing: -8, // Overlap avatars
+                    Wrap(
+                        spacing: -10, // Overlap avatars
+                        runSpacing: 6,
                         children: [
-                          ..._peserta.take(5).map((participant) {
+                          ..._peserta.take(7).map((participant) {
                             return Container(
-                              width: 32,
-                              height: 32,
+                              width: 40,
+                              height: 40,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white,
+                                  color: Colors.grey.shade300,
                                   width: 2,
                                 ),
-                                image: DecorationImage(
-                                  image: NetworkImage(participant['avatar']),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            );
-                          }),
-                          // Jika ada lebih dari 5 peserta, tampilkan +N
-                          if (_peserta.length > 5)
+                                image: participant['avatar'].toString().startsWith('http')
+                                  ? DecorationImage(
+                                      image: NetworkImage(participant['avatar']),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                              color: participant['color'] ?? Colors.grey.shade300,
+                            ),
+                            child: !participant['avatar']
+                                    .toString()
+                                    .startsWith('http')
+                                ? Center(
+                                    child: Text(
+                                      participant['avatar'],
+                                      style: const TextStyle(fontSize: 18),
+                                    ),
+                                  )
+                                : null,
+                          );
+                        }),
+                          // Jika ada lebih dari 7 peserta, tampilkan +N
+                          if (_peserta.length > 7)
                             Container(
-                              width: 32,
-                              height: 32,
+                              width: 42,
+                              height: 42,
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade300,
+                                color: Colors.white,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white,
+                                  color: Colors.grey.shade300,
                                   width: 2,
                                 ),
                               ),
                               child: Center(
                                 child: Text(
-                                  '+${_peserta.length - 5}',
+                                  '+${_peserta.length - 7}',
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade700,
+                                    color: Colors.black87,
                                     fontFamily: 'Poppins',
                                   ),
                                 ),
@@ -859,8 +853,7 @@ Row(
                             ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
+                    const SizedBox(height: 8),
                     Text(
                       '${_peserta.length} Peserta',
                       style: TextStyle(
@@ -876,7 +869,7 @@ Row(
     ),
   ],
 ),
-
+const SizedBox(height: 100),
                         // Buat Tugas Button
                         SizedBox(
                           width: double.infinity,
