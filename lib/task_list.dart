@@ -378,7 +378,7 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
                                       } else if (isPast && hasTasks) {
                                         return Colors.grey.shade500;
                                       } else if (!isPast && hasTasks) {
-                                        return const Color(0xFF4DB6AC);
+                                        return const Color(0xFF43A895);
                                       } else {
                                         return Colors.transparent;
                                       }
@@ -397,6 +397,22 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
             ),
           ),
 
+          // Add shadow effect at the bottom of calendar section
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  // ignore: deprecated_member_use
+                  Colors.black.withOpacity(0.05),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          
           // Task List Section with Grey Background
           Expanded(
             child: Container(
@@ -426,8 +442,11 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
             MaterialPageRoute(builder: (context) => const TambahTugasScreen()),
           );
         },
-        backgroundColor: const Color(0xFF4DB6AC),
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(50),
+        ),
+        backgroundColor: const Color(0xFF2D7063),
+        child: const Icon(Icons.add, color: Colors.white, size: 28,),
       ),
     );
   }
@@ -442,28 +461,30 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Time column (left side)
           SizedBox(
-            width: 50,
+            width: 45,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   jamMulai,
                   style: TextStyle(
-                    color: Colors.grey.shade600,
+                    color: Colors.grey.shade400,
                     fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     fontFamily: 'Poppins',
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 40),
                 Text(
                   jamSelesai,
                   style: TextStyle(
                     color: Colors.grey.shade400,
-                    fontSize: 11,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     fontFamily: 'Poppins',
                   ),
                 ),
@@ -471,98 +492,159 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
             ),
           ),
 
-          // Green vertical bar
-          Container(
-            width: 4,
-            height: 90,
+          const SizedBox(width: 16),
+
+          // Task content card with green left border
+        Expanded(
+          child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF4DB6AC),
-              borderRadius: BorderRadius.circular(2),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  // ignore: deprecated_member_use
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ),
+            child: Row(
+              children: [
+                // Green left section (1/8 of the box)
+                Container(
+                  width: 15,
+                  height: 100,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF43A895),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
+                    ),
+                  ),
+                ),
 
-          const SizedBox(width: 12),
-
-          // Task content card
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          judul,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                            fontFamily: 'Poppins',
+          // White content section
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical:14, horizontal: 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Left side: Title and Time
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title
+                              Text(
+                                judul,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                  fontFamily: 'Poppins',
+                                  height: 1.3,
+                                ),
+                              ),
+                              const SizedBox(height: 15),
+                              
+                              // Time with icon
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time_outlined,
+                                    size: 16,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    waktu,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade500,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      Icon(
-                        Icons.edit_outlined,
-                        size: 20,
-                        color: Colors.grey.shade600,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: Colors.grey.shade500,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        waktu,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                      const Spacer(),
-                      // Participants avatars
-                      Row(
-                        children: peserta.map((p) {
-                          return Container(
-                            margin: const EdgeInsets.only(left: 4),
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: p['color'],
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+
+                        const SizedBox(width: 8),
+
+                        // Right side: Avatars and Edit icon (avatars left of edit icon, spacing 8)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Participants avatars with overlap (left)
+                                SizedBox(
+                                  height: 45,
+                                  width: peserta.length * 28.0 + 12,
+                                  child: Stack(
+                                    children: peserta.asMap().entries.map((entry) {
+                                      int index = entry.key;
+                                      var p = entry.value;
+
+                                      return Positioned(
+                                        left: index * 28.0,
+                                        child: Container(
+                                          width: 42,
+                                          height: 42,
+                                          decoration: BoxDecoration(
+                                            color: p['color'],
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2.5,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                // ignore: deprecated_member_use
+                                                color: Colors.black.withOpacity(0.1),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              p['avatar'],
+                                              style: const TextStyle(fontSize: 20),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 16),
+
+                                // Edit icon (right)
+                                Icon(
+                                  Icons.edit_square,
+                                  size: 20,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ],
                             ),
-                            child: Center(
-                              child: Text(
-                                p['avatar'],
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
+                          ],
+                        ),],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 }
