@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart'; 
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart'; 
 import 'package:simoni/add_task.dart';
+import 'package:simoni/models/user_model.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LihatTugasScreen extends StatefulWidget {
-  const LihatTugasScreen({Key? key}) : super(key: key);
+  final UserModel user; // <-- Menerima data user
+  const LihatTugasScreen({Key? key, required this.user}) : super(key: key);
 
   @override
   State<LihatTugasScreen> createState() => _LihatTugasScreenState();
@@ -13,62 +18,18 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
   DateTime _selectedDate = DateTime.now();
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
+  int _taskCountToday = 0; // State untuk jumlah tugas di AppBar
 
-  // Sample data tugas
-  final List<Map<String, dynamic>> _tugasList = [
-    {
-      'judul': 'Inspeksi Keamanan Pangan',
-      'waktu': '10:00-11:30',
-      'jam': '10:00',
-      'peserta': [
-        {'avatar': '👨', 'color': Colors.blue},
-        {'avatar': '👩', 'color': Colors.pink},
-      ],
-    },
-    {
-      'judul': 'Penyusunan Laporan',
-      'waktu': '13:00-13:30',
-      'jam': '13:00',
-      'peserta': [
-        {'avatar': '👨', 'color': Colors.blue},
-        {'avatar': '👩', 'color': Colors.pink},
-      ],
-    },
-    {
-      'judul': 'Rapat Koordinasi',
-      'waktu': '14:00-15:30',
-      'jam': '14:00',
-      'peserta': [
-        {'avatar': '👨', 'color': Colors.blue},
-        {'avatar': '👩', 'color': Colors.pink},
-      ],
-    },
-    {
-      'judul': 'Monitoring',
-      'waktu': '15:30-16:00',
-      'jam': '15:30',
-      'peserta': [
-        {'avatar': '👨', 'color': Colors.blue},
-        {'avatar': '👩', 'color': Colors.pink},
-      ],
-    },
-    {
-      'judul': 'Cek sampel',
-      'waktu': '16:30-17:00',
-      'jam': '16:00',
-      'peserta': [
-        {'avatar': '👨', 'color': Colors.blue},
-        {'avatar': '👩', 'color': Colors.pink},
-      ],
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    initializeDateFormatting('id_ID', null); // Inisialisasi locale
+  }
 
+  // --- Fungsi Kalender ---
   List<DateTime> _getWeekDays() {
-    // Get current week
     DateTime now = _selectedDate;
-    int currentWeekday = now.weekday;
-    DateTime startOfWeek = now.subtract(Duration(days: currentWeekday - 1));
-
+    DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
     List<DateTime> weekDays = [];
     for (int i = 0; i < 7; i++) {
       weekDays.add(startOfWeek.add(Duration(days: i)));
@@ -77,53 +38,86 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
   }
 
   String _getDayName(DateTime date) {
-    const days = ['Sen', 'Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum'];
-    return days[date.weekday - 1];
+    return DateFormat('E', 'id_ID').format(date);
   }
 
   void _previousMonth() {
     setState(() {
-      if (_selectedMonth == 1) {
-        _selectedMonth = 12;
-        _selectedYear--;
+      DateTime newDate = DateTime(_selectedYear, _selectedMonth - 1, _selectedDate.day);
+      int maxDay = DateUtils.getDaysInMonth(newDate.year, newDate.month);
+      if (newDate.day > maxDay) {
+        _selectedDate = DateTime(newDate.year, newDate.month, maxDay);
       } else {
-        _selectedMonth--;
+        _selectedDate = newDate;
       }
+      _selectedMonth = _selectedDate.month;
+      _selectedYear = _selectedDate.year;
     });
   }
 
   void _nextMonth() {
     setState(() {
-      if (_selectedMonth == 12) {
-        _selectedMonth = 1;
-        _selectedYear++;
-      } else {
-        _selectedMonth++;
-      }
+       DateTime newDate = DateTime(_selectedYear, _selectedMonth + 1, _selectedDate.day);
+       int maxDay = DateUtils.getDaysInMonth(newDate.year, newDate.month);
+       if (newDate.day > maxDay) {
+         _selectedDate = DateTime(newDate.year, newDate.month, maxDay);
+       } else {
+         _selectedDate = newDate;
+       }
+      _selectedMonth = _selectedDate.month;
+      _selectedYear = _selectedDate.year;
     });
   }
 
   String _getMonthName(int month) {
-    const months = [
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
-      'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember',
-    ];
-    return months[month - 1];
+    return DateFormat('MMMM', 'id_ID').format(DateTime(_selectedYear, month));
   }
+  // --- Akhir Fungsi Kalender ---
+
+  // --- Fungsi Stream Query ---
+  Stream<QuerySnapshot> _buildTaskStream() {
+    final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0, 0);
+    final endOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
+
+    Query query = FirebaseFirestore.instance.collection('tugas')
+      .where('tanggalTarget', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+      .where('tanggalTarget', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+      .where('pembuatID', isEqualTo: widget.user.uid) // Filter by creator
+      .orderBy('tanggalTarget', descending: false); // Order by time
+
+    return query.snapshots();
+  }
+  // --- Akhir Fungsi Stream Query ---
+
+  // --- Fungsi Format Waktu ---
+  String _formatTaskStartTime(dynamic timestamp) {
+    if (timestamp is Timestamp) {
+      return DateFormat('HH:mm').format(timestamp.toDate());
+    }
+    return '--:--';
+  }
+
+  String _formatTaskDuration(dynamic startTimestamp, dynamic endTimestamp) {
+     if (startTimestamp is Timestamp && endTimestamp is Timestamp) {
+        final start = startTimestamp.toDate();
+        final end = endTimestamp.toDate();
+        if (DateUtils.isSameDay(start, end)) { // Gunakan DateUtils.isSameDay
+          return '${DateFormat('HH:mm').format(start)} - ${DateFormat('HH:mm').format(end)}';
+        } else {
+          return '${DateFormat('dd/MM HH:mm', 'id_ID').format(start)} - ${DateFormat('dd/MM HH:mm', 'id_ID').format(end)}';
+        }
+     }
+     if (startTimestamp is Timestamp) {
+        return DateFormat('HH:mm').format(startTimestamp.toDate());
+     }
+     return '--:--';
+  }
+  // --- Akhir Fungsi Format Waktu ---
 
   @override
   Widget build(BuildContext context) {
     final weekDays = _getWeekDays();
+    final appBarDate = DateFormat('d MMMM', 'id_ID').format(_selectedDate);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -137,17 +131,17 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '3 September',
-              style: TextStyle(
+             Text(
+              appBarDate,
+              style: GoogleFonts.poppins( // Terapkan GoogleFonts jika digunakan
                 color: Colors.black,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
-              '${_tugasList.length} tugas hari ini',
-              style: const TextStyle(
+             Text(
+              '$_taskCountToday tugas hari ini',
+              style: GoogleFonts.poppins( // Terapkan GoogleFonts jika digunakan
                 color: Colors.grey,
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
@@ -160,26 +154,23 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
         children: [
           // Calendar Month Selector
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 12.0,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.chevron_left),
+                  icon: Icon(Icons.chevron_left, size: 28, color: Colors.grey[700]),
                   onPressed: _previousMonth,
                 ),
                 Text(
                   '${_getMonthName(_selectedMonth)} $_selectedYear',
-                  style: const TextStyle(
+                  style: GoogleFonts.poppins( // Terapkan GoogleFonts jika digunakan
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_right),
+                  icon: Icon(Icons.chevron_right, size: 28, color: Colors.grey[700]),
                   onPressed: _nextMonth,
                 ),
               ],
@@ -194,57 +185,44 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
               children: weekDays.map((date) {
                 final dayName = _getDayName(date);
                 final dayNumber = date.day;
-                final isSelected =
-                    date.day == _selectedDate.day &&
-                    date.month == _selectedDate.month &&
-                    date.year == _selectedDate.year;
-                final hasTask = date.day == 3; // Sample: day 3 has tasks
+                final isSelected = DateUtils.isSameDay(_selectedDate, date);
 
                 return GestureDetector(
                   onTap: () {
                     setState(() {
                       _selectedDate = date;
+                      _selectedMonth = date.month;
+                      _selectedYear = date.year;
                     });
                   },
                   child: Container(
-                    width: 45,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    width: 48,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF4DB6AC)
-                          : Colors.transparent,
+                      color: isSelected ? const Color(0xFF4DB6AC) : Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           dayName,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.grey,
+                          style: GoogleFonts.poppins( // Terapkan GoogleFonts jika digunakan
+                            color: isSelected ? Colors.white : Colors.grey[600],
                             fontSize: 12,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
                           dayNumber.toString(),
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black,
+                          style: GoogleFonts.poppins( // Terapkan GoogleFonts jika digunakan
+                            color: isSelected ? Colors.white : Colors.black87,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        if (hasTask)
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.white
-                                  : const Color(0xFF4DB6AC),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+                        const SizedBox(height: 6),
+                        Container(height: 6), // Placeholder
                       ],
                     ),
                   ),
@@ -253,20 +231,57 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
-          // Task List
+          // Task List (StreamBuilder)
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              itemCount: _tugasList.length,
-              itemBuilder: (context, index) {
-                final tugas = _tugasList[index];
-                return _buildTaskCard(
-                  jam: tugas['jam'],
-                  judul: tugas['judul'],
-                  waktu: tugas['waktu'],
-                  peserta: tugas['peserta'],
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _buildTaskStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: Color(0xFF4DB6AC)));
+                }
+                if (snapshot.hasError) {
+                  print('Error fetching tasks: ${snapshot.error}');
+                  return const Center(child: Text('Gagal memuat tugas.', style: TextStyle(color: Colors.red)));
+                }
+
+                final taskDocs = snapshot.data?.docs ?? [];
+                final currentTaskCount = taskDocs.length;
+
+                // Update AppBar count di post frame callback jika perlu
+                 if (_taskCountToday != currentTaskCount) {
+                   WidgetsBinding.instance.addPostFrameCallback((_) {
+                     if (mounted) {
+                       setState(() { _taskCountToday = currentTaskCount; });
+                     }
+                   });
+                 }
+
+                if (taskDocs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Tidak ada tugas pada tanggal ini.',
+                      style: GoogleFonts.poppins(color: Colors.grey), // Terapkan GoogleFonts
+                    )
+                  );
+                }
+
+                // Tampilkan ListView jika ada data
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 80.0), // Padding bawah FAB
+                  itemCount: taskDocs.length,
+                  itemBuilder: (context, index) {
+                    final taskData = taskDocs[index].data() as Map<String, dynamic>;
+
+                    return _buildTaskCard(
+                      jam: _formatTaskStartTime(taskData['tanggalTarget']),
+                      judul: taskData['judul'] ?? 'Tanpa Judul',
+                      // Gunakan field 'mulai' dan 'selesai' dari data Anda jika ada
+                      waktu: _formatTaskDuration(taskData['tanggalTarget'], taskData['tanggalSelesai']),
+                      pesertaIDs: List<String>.from(taskData['pesertaIDs'] ?? []),
+                    );
+                  },
                 );
               },
             ),
@@ -275,54 +290,58 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Navigate to Tambah Tugas Screen
+          // Kirim user ke AddTask screen jika diperlukan
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const TambahTugasScreen()),
+            MaterialPageRoute(builder: (context) => const TambahTugasScreen(/* user: widget.user */)),
           );
         },
         backgroundColor: const Color(0xFF4DB6AC),
-        child: const Icon(Icons.add, color: Colors.white),
+        foregroundColor: Colors.white,
+        tooltip: 'Tambah Tugas',
+        child: const Icon(Icons.add),
       ),
     );
   }
 
+  // --- Widget _buildTaskCard ---
   Widget _buildTaskCard({
     required String jam,
     required String judul,
     required String waktu,
-    required List<Map<String, dynamic>> peserta,
+    required List<String> pesertaIDs,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Time column
           SizedBox(
             width: 50,
-            child: Text(
-              jam,
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2.0),
+              child: Text(
+                jam,
+                style: GoogleFonts.poppins( // Terapkan GoogleFonts
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
             ),
           ),
-
-          // Green bar
           Container(
             width: 4,
-            height: 80,
+            height: 70, // Sesuaikan tinggi kartu
+            margin: const EdgeInsets.only(top: 4.0),
             decoration: BoxDecoration(
               color: const Color(0xFF4DB6AC),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-
           const SizedBox(width: 12),
-
-          // Task content card
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.grey[50],
                 borderRadius: BorderRadius.circular(12),
@@ -333,50 +352,43 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
                 children: [
                   Text(
                     judul,
-                    style: const TextStyle(
+                    style: GoogleFonts.poppins( // Terapkan GoogleFonts
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: Colors.black87,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: Colors.grey,
-                      ),
+                      Icon(Icons.access_time, size: 14, color: Colors.grey[600]), // Perkecil ikon waktu
                       const SizedBox(width: 4),
                       Text(
                         waktu,
-                        style: const TextStyle(
+                        style: GoogleFonts.poppins( // Terapkan GoogleFonts
                           fontSize: 12,
-                          color: Colors.grey,
+                          color: Colors.grey[600], // Warna sedikit lebih gelap
                         ),
                       ),
                       const Spacer(),
-                      // Participants avatars
-                      Row(
-                        children: peserta.map((p) {
-                          return Container(
-                            margin: const EdgeInsets.only(left: 4),
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: p['color'],
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                      if (pesertaIDs.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${pesertaIDs.length} Peserta',
+                            style: GoogleFonts.poppins( // Terapkan GoogleFonts
+                              fontSize: 10,
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w500,
                             ),
-                            child: Center(
-                              child: Text(
-                                p['avatar'],
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                          ),
+                        )
                     ],
                   ),
                 ],
