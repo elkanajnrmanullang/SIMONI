@@ -15,6 +15,12 @@ class LihatTugasScreen extends StatefulWidget {
 }
 
 class _LihatTugasScreenState extends State<LihatTugasScreen> {
+  // --- PERBAIKAN 1: Tambahkan ScrollController & state kalender ---
+  final ScrollController _scrollController = ScrollController();
+  late DateTime _calendarStartDate;
+  final int _totalCalendarDays = 365 * 5; // Tampilkan 5 tahun (2 lalu, 3 depan)
+  // -----------------------------------------------------------
+
   DateTime _selectedDate = DateTime.now();
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
@@ -24,19 +30,80 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
   void initState() {
     super.initState();
     initializeDateFormatting('id_ID', null); // Inisialisasi locale
+
+    // --- PERBAIKAN 2: Inisialisasi tanggal awal kalender ---
+    final DateTime today = DateUtils.dateOnly(DateTime.now());
+    // Mulai 2 tahun yang lalu dari 1 Januari
+    _calendarStartDate = DateTime(today.year - 2, 1, 1);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSelectedDate(animate: false); // Langsung lompat ke hari ini
+    });
+    // ----------------------------------------------------
   }
 
-  // --- Fungsi Kalender ---
-  List<DateTime> _getWeekDays() {
-    DateTime now = _selectedDate;
-    // Awal minggu hari Senin (now.weekday - 1)
-    DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    List<DateTime> weekDays = [];
-    for (int i = 0; i < 7; i++) {
-      weekDays.add(startOfWeek.add(Duration(days: i)));
-    }
-    return weekDays;
+  // --- PERBAIKAN 3: Tambahkan dispose controller ---
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
+  // ----------------------------------------------
+
+  // --- Fungsi Kalender ---
+
+  // --- PERBAIKAN 4: Hapus _getWeekDays() karena tidak dipakai ---
+  // List<DateTime> _getWeekDays() { ... }
+  // ---------------------------------------------------------
+
+  // --- PERBAIKAN 5: Tambahkan fungsi scroll-ke-tengah ---
+  void _scrollToSelectedDate({bool animate = true}) {
+    if (!_scrollController.hasClients) return;
+
+    // 1. Hitung index tanggal yang dipilih
+    final DateTime targetDate = DateUtils.dateOnly(_selectedDate);
+
+    // Pastikan tanggal target ada dalam jangkauan
+    if (targetDate.isBefore(_calendarStartDate)) {
+      _scrollController.jumpTo(0); // Scroll ke paling awal
+      return;
+    }
+
+    final int selectedIndex = targetDate.difference(_calendarStartDate).inDays;
+    if (selectedIndex < 0) {
+      _scrollController.jumpTo(0);
+      return;
+    }
+
+    // 2. Tentukan ukuran item (lebar 48 + padding horizontal 4*2 = 8)
+    const double itemWidth = 48.0 + 8.0;
+
+    // 3. Dapatkan lebar layar
+    final double screenWidth = MediaQuery.of(context).size.width;
+
+    // 4. Hitung offset untuk menempatkan item di tengah
+    double offset = (selectedIndex * itemWidth) - (screenWidth / 2) + (itemWidth / 2);
+
+    // 5. Batasi offset
+    final double maxScroll = _scrollController.position.maxScrollExtent;
+    if (offset < 0) {
+      offset = 0;
+    } else if (offset > maxScroll) {
+      offset = maxScroll;
+    }
+
+    // 6. Lakukan scrolling
+    if (animate) {
+      _scrollController.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _scrollController.jumpTo(offset);
+    }
+  }
+  // --- AKHIR FUNGSI BARU ---
 
   String _getDayName(DateTime date) {
     // Gunakan DateFormat untuk nama hari Indonesia
@@ -56,21 +123,27 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
       _selectedMonth = _selectedDate.month;
       _selectedYear = _selectedDate.year;
     });
+    // --- PERBAIKAN 6: Panggil scroll ---
+    _scrollToSelectedDate();
+    // ----------------------------------
   }
 
   void _nextMonth() {
     setState(() {
       // Logika yang benar untuk pindah bulan & tanggal
-       DateTime newDate = DateTime(_selectedYear, _selectedMonth + 1, _selectedDate.day);
-       int maxDay = DateUtils.getDaysInMonth(newDate.year, newDate.month);
-       if (newDate.day > maxDay) {
-         _selectedDate = DateTime(newDate.year, newDate.month, maxDay);
-       } else {
-         _selectedDate = newDate;
-       }
+      DateTime newDate = DateTime(_selectedYear, _selectedMonth + 1, _selectedDate.day);
+      int maxDay = DateUtils.getDaysInMonth(newDate.year, newDate.month);
+      if (newDate.day > maxDay) {
+        _selectedDate = DateTime(newDate.year, newDate.month, maxDay);
+      } else {
+        _selectedDate = newDate;
+      }
       _selectedMonth = _selectedDate.month;
       _selectedYear = _selectedDate.year;
     });
+    // --- PERBAIKAN 7: Panggil scroll ---
+    _scrollToSelectedDate();
+    // ----------------------------------
   }
 
   String _getMonthName(int month) {
@@ -111,19 +184,19 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
   }
 
   String _formatTaskDuration(dynamic startTimestamp, dynamic endTimestamp) {
-     if (startTimestamp is Timestamp && endTimestamp is Timestamp) {
-        final start = startTimestamp.toDate();
-        final end = endTimestamp.toDate();
-        if (DateUtils.isSameDay(start, end)) {
-          return '${DateFormat('HH:mm').format(start)} - ${DateFormat('HH:mm').format(end)}';
-        } else {
-          return '${DateFormat('dd/MM HH:mm', 'id_ID').format(start)} - ${DateFormat('dd/MM HH:mm', 'id_ID').format(end)}';
-        }
-     }
-     if (startTimestamp is Timestamp) {
-        return DateFormat('HH:mm').format(startTimestamp.toDate());
-     }
-     return '--:--';
+    if (startTimestamp is Timestamp && endTimestamp is Timestamp) {
+      final start = startTimestamp.toDate();
+      final end = endTimestamp.toDate();
+      if (DateUtils.isSameDay(start, end)) {
+        return '${DateFormat('HH:mm').format(start)} - ${DateFormat('HH:mm').format(end)}';
+      } else {
+        return '${DateFormat('dd/MM HH:mm', 'id_ID').format(start)} - ${DateFormat('dd/MM HH:mm', 'id_ID').format(end)}';
+      }
+    }
+    if (startTimestamp is Timestamp) {
+      return DateFormat('HH:mm').format(startTimestamp.toDate());
+    }
+    return '--:--';
   }
   // --- Akhir Fungsi Format Waktu ---
 
@@ -176,7 +249,7 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
     ];
     const List<Color> colors = [
       Color(0xFF4ADE80), // Selesai
-      Colors.grey,      // Berjalan
+      Colors.grey, // Berjalan
       Color(0xFF90D0F7), // Tertunda
       Color(0xFFF79090), // Dibatalkan
     ];
@@ -216,9 +289,9 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
                       color: isSelected ? const Color(0xFF4DB6AC) : Colors.black87,
                     ),
                   ),
-                  trailing: isSelected 
-                    ? const Icon(Icons.check, color: Color(0xFF4DB6AC)) 
-                    : null,
+                  trailing: isSelected
+                      ? const Icon(Icons.check, color: Color(0xFF4DB6AC))
+                      : null,
                   onTap: () {
                     if (!isSelected) {
                       _updateTaskStatus(taskId, status); // Kirim ke Firestore
@@ -237,7 +310,7 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final weekDays = _getWeekDays();
+    // final weekDays = _getWeekDays(); // <-- TIDAK DIPAKAI LAGI
     final appBarDate = DateFormat('d MMMM', 'id_ID').format(_selectedDate);
 
     return Scaffold(
@@ -252,7 +325,7 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-             Text(
+            Text(
               appBarDate,
               style: GoogleFonts.poppins(
                 color: Colors.black,
@@ -260,7 +333,7 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-             Text(
+            Text(
               '$_taskCountToday tugas hari ini',
               style: GoogleFonts.poppins(
                 color: Colors.grey,
@@ -281,7 +354,7 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
               children: [
                 IconButton(
                   icon: Icon(Icons.chevron_left, size: 28, color: Colors.grey[700]),
-                  onPressed: _previousMonth,
+                  onPressed: _previousMonth, // <-- Selalu bisa mundur
                 ),
                 Text(
                   '${_getMonthName(_selectedMonth)} $_selectedYear',
@@ -290,186 +363,84 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-<<<<<<< HEAD
                 IconButton(
                   icon: Icon(Icons.chevron_right, size: 28, color: Colors.grey[700]),
                   onPressed: _nextMonth,
-=======
-
-                // Week Days Selector
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: weekDays.map((date) {
-                      final dayName = _getDayName(date);
-                      final dayNumber = date.day;
-                      final isSelected = date.day == _selectedDate.day &&
-                          date.month == _selectedDate.month &&
-                          date.year == _selectedDate.year;
-
-                      final hasTasks = _hasTasksOnDate(date);
-                      final today = DateTime.now();
-                      final todayOnly = DateTime(today.year, today.month, today.day);
-                      final dateOnly = DateTime(date.year, date.month, date.day);
-                      final isPast = dateOnly.isBefore(todayOnly);
-
-                      return GestureDetector(
-                        onTap: isPast ? null : () {
-                          setState(() {
-                            _selectedDate = date;
-                          });
-                        },
-                        child: Container(
-                          width: 50,
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF4DB6AC) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                            border: isSelected 
-                                ? null 
-                                : Border.all(
-                                    color: isPast ? Colors.grey.shade500 : Colors.black,
-                                    width: 1,
-                                  ),
-                          ),
-                          child: Opacity(
-                            opacity: isPast ? 0.8 : 1.0,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  dayName,
-                                  style: TextStyle(
-                                    color: isSelected ? Colors.white : 
-                                    (isPast ? Colors.grey.shade400 : Colors.grey.shade600),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    fontFamily: 'Poppins',
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  dayNumber.toString(),
-                                  style: TextStyle(
-                                    color: isSelected ? Colors.white : 
-                                    (isPast ? Colors.grey.shade400 : Colors.black),
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    fontFamily: 'Poppins',
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  width: 5,
-                                  height: 5,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: () {
-                                      if (isSelected && hasTasks) {
-                                        return Colors.white;
-                                      } else if (isSelected && !hasTasks) {
-                                        return Colors.transparent;
-                                      } else if (isPast && hasTasks) {
-                                        return Colors.grey.shade500;
-                                      } else if (!isPast && hasTasks) {
-                                        return const Color(0xFF43A895);
-                                      } else {
-                                        return Colors.transparent;
-                                      }
-                                    }(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
->>>>>>> ec23a19a2f70effda018e3c5e7462bb7b36d4843
                 ),
               ],
             ),
           ),
 
-<<<<<<< HEAD
-          // Week Days Selector
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: weekDays.map((date) {
+          // --- PERBAIKAN 8: Ganti Row kalender jadi ListView.builder ---
+          Container(
+            height: 90, // Beri tinggi tetap untuk list
+            child: ListView.builder(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              itemCount: _totalCalendarDays,
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              itemBuilder: (context, index) {
+                // Hitung tanggal berdasarkan index
+                final DateTime date = _calendarStartDate.add(Duration(days: index));
+                
                 final dayName = _getDayName(date);
                 final dayNumber = date.day;
-                final isSelected = DateUtils.isSameDay(_selectedDate, date);
-
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedDate = date;
-                      _selectedMonth = date.month;
-                      _selectedYear = date.year;
-                    });
-                  },
-                  child: Container(
-                    width: 48,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF4DB6AC) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          dayName,
-                          style: GoogleFonts.poppins(
-                            color: isSelected ? Colors.white : Colors.grey[600],
-                            fontSize: 12,
+                final isSelected = DateUtils.isSameDay(date, _selectedDate);
+                
+                // Tidak ada lagi 'isPast' check untuk disabling
+                
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0), // Spasi antar item
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedDate = date;
+                        _selectedMonth = date.month;
+                        _selectedYear = date.year;
+                      });
+                      _scrollToSelectedDate(); // Panggil scroll saat di-tap
+                    },
+                    child: Container(
+                      width: 48, // Lebar item
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF4DB6AC) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            dayName,
+                            style: GoogleFonts.poppins(
+                              color: isSelected ? Colors.white : Colors.grey[600],
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          dayNumber.toString(),
-                          style: GoogleFonts.poppins(
-                            color: isSelected ? Colors.white : Colors.black87,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(height: 6),
+                          Text(
+                            dayNumber.toString(),
+                            style: GoogleFonts.poppins(
+                              color: isSelected ? Colors.white : Colors.black87,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Container(height: 6), // Placeholder
-                      ],
+                          const SizedBox(height: 6),
+                          Container(height: 6), // Placeholder
+                        ],
+                      ),
                     ),
                   ),
                 );
-              }).toList(),
+              },
             ),
           ),
+          // --- AKHIR PERBAIKAN 8 ---
 
           const SizedBox(height: 16),
 
           // Task List (StreamBuilder)
-=======
-          // Add shadow effect at the bottom of calendar section
-          Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  // ignore: deprecated_member_use
-                  Colors.black.withOpacity(0.05),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-          
-          // Task List Section with Grey Background
->>>>>>> ec23a19a2f70effda018e3c5e7462bb7b36d4843
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _buildTaskStream(),
@@ -484,20 +455,20 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
                 final taskDocs = snapshot.data?.docs ?? [];
                 final currentTaskCount = taskDocs.length;
 
-                 if (_taskCountToday != currentTaskCount) {
-                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                     if (mounted) {
-                       setState(() { _taskCountToday = currentTaskCount; });
-                     }
-                   });
-                 }
+                if (_taskCountToday != currentTaskCount) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() { _taskCountToday = currentTaskCount; });
+                    }
+                  });
+                }
 
                 if (taskDocs.isEmpty) {
                   return Center(
-                    child: Text(
-                      'Tidak ada tugas pada tanggal ini.',
-                      style: GoogleFonts.poppins(color: Colors.grey),
-                    )
+                      child: Text(
+                        'Tidak ada tugas pada tanggal ini.',
+                        style: GoogleFonts.poppins(color: Colors.grey),
+                      )
                   );
                 }
 
@@ -530,18 +501,10 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
             MaterialPageRoute(builder: (context) => TambahTugasScreen(user: widget.user)),
           );
         },
-<<<<<<< HEAD
         backgroundColor: const Color(0xFF4DB6AC),
         foregroundColor: Colors.white,
         tooltip: 'Tambah Tugas',
         child: const Icon(Icons.add),
-=======
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(50),
-        ),
-        backgroundColor: const Color(0xFF2D7063),
-        child: const Icon(Icons.add, color: Colors.white, size: 28,),
->>>>>>> ec23a19a2f70effda018e3c5e7462bb7b36d4843
       ),
     );
   }
@@ -562,7 +525,6 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
         children: [
           // Kolom Jam
           SizedBox(
-<<<<<<< HEAD
             width: 50,
             child: Padding(
               padding: const EdgeInsets.only(top: 2.0),
@@ -580,55 +542,12 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
             width: 4,
             height: 70, // Sesuaikan tinggi kartu
             margin: const EdgeInsets.only(top: 4.0),
-=======
-            width: 45,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  jamMulai,
-                  style: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-                const SizedBox(height: 40),
-                Text(
-                  jamSelesai,
-                  style: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 16),
-
-          // Task content card with green left border
-        Expanded(
-          child: Container(
->>>>>>> ec23a19a2f70effda018e3c5e7462bb7b36d4843
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-              boxShadow: [
-                BoxShadow(
-                  // ignore: deprecated_member_use
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: const Color(0xFF4DB6AC), // Menggunakan warna tema
+              borderRadius: BorderRadius.circular(2),
             ),
-<<<<<<< HEAD
           ),
+
           const SizedBox(width: 12),
           // Konten Kartu
           Expanded(
@@ -654,73 +573,10 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: Colors.black87,
-=======
-            child: Row(
-              children: [
-                // Green left section (1/8 of the box)
-                Container(
-                  width: 15,
-                  height: 100,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF43A895),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                  ),
-                ),
-
-          // White content section
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical:14, horizontal: 14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Left side: Title and Time
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Title
-                              Text(
-                                judul,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black87,
-                                  fontFamily: 'Poppins',
-                                  height: 1.3,
-                                ),
-                              ),
-                              const SizedBox(height: 15),
-                              
-                              // Time with icon
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.access_time_outlined,
-                                    size: 16,
-                                    color: Colors.grey.shade500,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    waktu,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade500,
-                                      fontFamily: 'Poppins',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
->>>>>>> ec23a19a2f70effda018e3c5e7462bb7b36d4843
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-<<<<<<< HEAD
                       ),
                       // --- TOMBOL EDIT ---
                       IconButton(
@@ -769,81 +625,13 @@ class _LihatTugasScreenState extends State<LihatTugasScreen> {
                           ),
                         ),
                     ],
-=======
-
-                        const SizedBox(width: 8),
-
-                        // Right side: Avatars and Edit icon (avatars left of edit icon, spacing 8)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Participants avatars with overlap (left)
-                                SizedBox(
-                                  height: 45,
-                                  width: peserta.length * 28.0 + 12,
-                                  child: Stack(
-                                    children: peserta.asMap().entries.map((entry) {
-                                      int index = entry.key;
-                                      var p = entry.value;
-
-                                      return Positioned(
-                                        left: index * 28.0,
-                                        child: Container(
-                                          width: 42,
-                                          height: 42,
-                                          decoration: BoxDecoration(
-                                            color: p['color'],
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 2.5,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                // ignore: deprecated_member_use
-                                                color: Colors.black.withOpacity(0.1),
-                                                blurRadius: 4,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              p['avatar'],
-                                              style: const TextStyle(fontSize: 20),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-
-                                const SizedBox(width: 16),
-
-                                // Edit icon (right)
-                                Icon(
-                                  Icons.edit_square,
-                                  size: 20,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),],
-                    ),
->>>>>>> ec23a19a2f70effda018e3c5e7462bb7b36d4843
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 }

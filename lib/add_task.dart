@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:simoni/add_participants.dart';
-import 'package:simoni/models/user_model.dart'; 
+import 'package:simoni/models/user_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TambahTugasScreen extends StatefulWidget {
@@ -16,7 +16,7 @@ class TambahTugasScreen extends StatefulWidget {
 
 class _TambahTugasScreenState extends State<TambahTugasScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController(); // Controller untuk list tanggal
 
   // Form controllers
   final TextEditingController _judulController = TextEditingController();
@@ -40,6 +40,11 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
     'Pengawasan & Keamanan Pangan',
   ];
 
+  // --- PERBAIKAN 1: Tentukan tanggal mulai kalender ---
+  // Kita gunakan 1 Jan di tahun ini sebagai titik awal (index 0)
+  late DateTime _calendarStartDate;
+  final int _totalCalendarDays = 365 * 3; // Tampilkan 3 tahun
+
   @override
   void initState() {
     super.initState();
@@ -47,8 +52,13 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
 
     _mulai = DateTime.now();
     _selesai = DateTime.now().add(const Duration(hours: 1));
+
+    // --- PERBAIKAN 2: Inisialisasi tanggal mulai ---
+    final DateTime today = DateUtils.dateOnly(DateTime.now());
+    _calendarStartDate = DateTime(today.year, 1, 1); // 1 Jan tahun ini
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToSelectedDate();
+      _scrollToSelectedDate(animate: false); // Langsung lompat tanpa animasi saat load
     });
   }
 
@@ -63,24 +73,48 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
   // 📅 Calendar Helper Functions
   // ==========================
 
-  List<DateTime> _getWeekDays() {
-    DateTime now = _selectedDate;
-    // Awal minggu hari Senin (now.weekday - 1)
-    DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1)); 
-    List<DateTime> weekDays = [];
-    for (int i = 0; i < 7; i++) {
-      weekDays.add(startOfWeek.add(Duration(days: i)));
-    }
-    return weekDays;
-  }
+  // --- FUNGSI _getWeekDays() TIDAK DIPERLUKAN LAGI ---
 
-  void _scrollToSelectedDate() {
-    if (_scrollController.hasClients) {
+  // --- PERBAIKAN 3: Logika scroll untuk memusatkan tanggal ---
+  void _scrollToSelectedDate({bool animate = true}) {
+    if (!_scrollController.hasClients) return;
+
+    // 1. Hitung index tanggal yang dipilih
+    // Pastikan _selectedDate tidak sebelum _calendarStartDate
+    final DateTime targetDate = DateUtils.dateOnly(_selectedDate);
+    if (targetDate.isBefore(_calendarStartDate)) {
+      return; // Tidak bisa scroll ke tanggal sebelum awal kalender
+    }
+    
+    final int selectedIndex = targetDate.difference(_calendarStartDate).inDays;
+
+    // 2. Tentukan ukuran item (lebar 50 + padding horizontal 4*2 = 8)
+    const double itemWidth = 50.0 + 8.0; 
+
+    // 3. Dapatkan lebar layar
+    final double screenWidth = MediaQuery.of(context).size.width;
+
+    // 4. Hitung offset untuk menempatkan item di tengah
+    // (index * lebar item) - (setengah layar) + (setengah lebar item)
+    double offset = (selectedIndex * itemWidth) - (screenWidth / 2) + (itemWidth / 2);
+
+    // 5. Batasi offset agar tidak scroll ke area kosong
+    final double maxScroll = _scrollController.position.maxScrollExtent;
+    if (offset < 0) {
+      offset = 0;
+    } else if (offset > maxScroll) {
+      offset = maxScroll;
+    }
+
+    // 6. Lakukan scrolling
+    if (animate) {
       _scrollController.animateTo(
-        (50.0 + 8.0) * 3, // Sesuaikan dengan lebar item (50) + padding (8)
+        offset,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
+    } else {
+      _scrollController.jumpTo(offset);
     }
   }
 
@@ -99,23 +133,29 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
       }
       _selectedMonth = _selectedDate.month;
       _selectedYear = _selectedDate.year;
-      _scrollToSelectedDate();
+
+      // Cek jika tanggal baru < hari ini, paksa ke hari ini
+      final DateTime today = DateUtils.dateOnly(DateTime.now());
+      if (_selectedDate.isBefore(today)) {
+        _selectedDate = today;
+      }
     });
+    _scrollToSelectedDate(); // Panggil scroll setelah state berubah
   }
 
   void _nextMonth() {
     setState(() {
-       DateTime newDate = DateTime(_selectedYear, _selectedMonth + 1, _selectedDate.day);
-       int maxDay = DateUtils.getDaysInMonth(newDate.year, newDate.month);
-       if (newDate.day > maxDay) {
-         _selectedDate = DateTime(newDate.year, newDate.month, maxDay);
-       } else {
-         _selectedDate = newDate;
-       }
+      DateTime newDate = DateTime(_selectedYear, _selectedMonth + 1, _selectedDate.day);
+      int maxDay = DateUtils.getDaysInMonth(newDate.year, newDate.month);
+      if (newDate.day > maxDay) {
+        _selectedDate = DateTime(newDate.year, newDate.month, maxDay);
+      } else {
+        _selectedDate = newDate;
+      }
       _selectedMonth = _selectedDate.month;
       _selectedYear = _selectedDate.year;
-      _scrollToSelectedDate();
     });
+    _scrollToSelectedDate(); // Panggil scroll setelah state berubah
   }
 
   String _getMonthName(int month) {
@@ -125,12 +165,12 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
   Future<void> _pickDateTime({required bool isMulai}) async {
     final DateTime now = DateTime.now();
     // Tanggal pertama yang bisa dipilih adalah hari ini
-    final DateTime firstSelectableDate = DateUtils.dateOnly(now); 
+    final DateTime firstSelectableDate = DateUtils.dateOnly(now);
 
     DateTime initialDate = isMulai
         ? (_mulai ?? _selectedDate)
         : (_selesai ?? (_mulai ?? _selectedDate));
-    
+
     // Pastikan initialDate tidak sebelum hari ini
     if (initialDate.isBefore(firstSelectableDate)) {
       initialDate = firstSelectableDate;
@@ -156,13 +196,13 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
 
     // Cek apakah waktu yang dipilih sudah lewat
     if (combined.isBefore(DateTime.now().subtract(const Duration(minutes: 1)))) {
-       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak dapat memilih waktu yang sudah lewat'),
-            backgroundColor: Colors.orange,
-          ),
-       );
-       return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tidak dapat memilih waktu yang sudah lewat'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
     }
 
     setState(() {
@@ -176,27 +216,30 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
         }
       } else {
         if (_mulai != null && combined.isBefore(_mulai!)) {
-           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Waktu selesai tidak boleh sebelum waktu mulai'),
-                backgroundColor: Colors.orange,
-              ),
-           );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Waktu selesai tidak boleh sebelum waktu mulai'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         } else {
-           _selesai = combined;
-           _selectedDate = combined; // Update kalender ke tanggal yg dipilih
-           _selectedMonth = combined.month;
-           _selectedYear = combined.year;
+          _selesai = combined;
+          _selectedDate = combined; // Update kalender ke tanggal yg dipilih
+          _selectedMonth = combined.month;
+          _selectedYear = combined.year;
         }
       }
     });
+
+    // --- PERBAIKAN 4: Panggil scroll setelah memilih tanggal ---
+    _scrollToSelectedDate();
   }
 
   String _formatDateTimeShort(DateTime? dt) {
     if (dt == null) return 'Pilih waktu';
     return DateFormat('d MMM, HH:mm', 'id_ID').format(dt);
   }
-  
+
   Future<void> _navigateToAddParticipants() async {
     final result = await Navigator.push<List<Map<String, dynamic>>>(
       context,
@@ -219,21 +262,21 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
   // --- FUNGSI SUBMIT (INTEGRASI FIREBASE) ---
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     // Cek apakah tanggal yang dipilih sudah lewat
     final DateTime today = DateUtils.dateOnly(DateTime.now());
     final DateTime selectedDay = DateUtils.dateOnly(_selectedDate);
     if (selectedDay.isBefore(today)) {
-       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak dapat menambah tugas untuk tanggal yang sudah lewat'),
-            backgroundColor: Colors.red,
-          ),
-       );
-       return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tidak dapat menambah tugas untuk tanggal yang sudah lewat'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
     }
 
-    if (_selectedKategori == null ) { 
+    if (_selectedKategori == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Silakan pilih kategori tugas/kegiatan'),
@@ -256,28 +299,27 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
 
     try {
       List<String> pesertaIDs = _peserta.map((p) => p['id'].toString()).toList();
-      
+
       Map<String, dynamic> taskData = {
         'judul': _judulController.text.trim(),
         'kategori': _selectedKategori,
         'waktuMulai': Timestamp.fromDate(_mulai!),
         'waktuSelesai': Timestamp.fromDate(_selesai!),
         // Gunakan _mulai (yang sudah divalidasi) sebagai tanggal target
-        'tanggalTarget': Timestamp.fromDate(_mulai!), 
-        'pembuatID': widget.user.uid, 
+        'tanggalTarget': Timestamp.fromDate(_mulai!),
+        'pembuatID': widget.user.uid,
         'pesertaIDs': pesertaIDs,
         'status': 'tertunda',
-        'deskripsi': '', 
+        'deskripsi': '',
       };
 
       await FirebaseFirestore.instance.collection('tugas').add(taskData);
 
       if (!mounted) return;
       _showSuccessDialog();
-
     } catch (e) {
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal membuat tugas: $e'),
             backgroundColor: Colors.red,
@@ -289,7 +331,7 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
         setState(() => _isSubmitting = false);
       }
     }
-  } 
+  }
 
   // --- Fungsi Dialog Sukses ---
   void _showSuccessDialog() {
@@ -299,9 +341,9 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
       builder: (BuildContext context) {
         Future.delayed(const Duration(seconds: 2), () {
           Navigator.of(context, rootNavigator: true).pop(); // tutup dialog
-          if (mounted){
+          if (mounted) {
             Navigator.of(context).pop(); // kembali ke layar sebelumnya
-          } 
+          }
         });
 
         return Dialog(
@@ -319,9 +361,9 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white, 
+                    color: Colors.white,
                     border: Border.all(
-                      color: const Color(0xFF2D7063), 
+                      color: const Color(0xFF2D7063),
                       width: 4,
                     ),
                     boxShadow: [
@@ -366,7 +408,7 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final weekDays = _getWeekDays();
+    // final weekDays = _getWeekDays(); // <-- TIDAK DIPAKAI LAGI
     final appBarDate = DateFormat('d MMMM', 'id_ID').format(_selectedDate);
     // Variabel untuk mengecek hari ini (tanpa jam)
     final DateTime today = DateUtils.dateOnly(DateTime.now());
@@ -398,10 +440,10 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
         ),
       ),
       body: Column(
-          children: [
-            // Calendar Section
-            Container(
-              decoration: BoxDecoration(
+        children: [
+          // Calendar Section
+          Container(
+            decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
@@ -411,123 +453,147 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                 ),
               ],
             ),
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                children: [
-                  // Calendar Month Selector
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          // Logika untuk menonaktifkan tombol 'previous month'
-                          onPressed: () {
-                            DateTime firstDayOfCurrentMonth = DateTime(today.year, today.month, 1);
-                            DateTime firstDayOfSelectedMonth = DateTime(_selectedYear, _selectedMonth, 1);
-                            if (firstDayOfSelectedMonth.isAfter(firstDayOfCurrentMonth)) {
-                              _previousMonth();
-                            }
-                          },
-                          color: DateTime(_selectedYear, _selectedMonth, 1).isAfter(DateTime(today.year, today.month, 1))
-                                 ? Colors.black87
-                                 : Colors.grey[300],
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              children: [
+                // Calendar Month Selector
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        // Logika untuk menonaktifkan tombol 'previous month'
+                        onPressed: () {
+                          DateTime firstDayOfCurrentMonth = DateTime(today.year, today.month, 1);
+                          DateTime firstDayOfSelectedMonth = DateTime(_selectedYear, _selectedMonth, 1);
+                          if (firstDayOfSelectedMonth.isAfter(firstDayOfCurrentMonth)) {
+                            _previousMonth();
+                          }
+                        },
+                        color: DateTime(_selectedYear, _selectedMonth, 1).isAfter(DateTime(today.year, today.month, 1))
+                            ? Colors.black87
+                            : Colors.grey[300],
+                      ),
+                      Text(
+                        '${_getMonthName(_selectedMonth)} $_selectedYear',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
-                        Text(
-                          '${_getMonthName(_selectedMonth)} $_selectedYear',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: _nextMonth, // Selalu bisa ke bulan depan
-                        ),
-                      ],
-                    ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed: _nextMonth, // Selalu bisa ke bulan depan
+                      ),
+                    ],
                   ),
+                ),
 
-                  // Week Days Selector
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: weekDays.map((date) {
+                // --- PERBAIKAN 5: Ganti Row menjadi ListView.builder ---
+                Container(
+                  height: 90, // Beri tinggi tetap untuk list horizontal
+                  child: ListView.builder(
+                    controller: _scrollController, // <--- PENTING: Sambungkan controller
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _totalCalendarDays, // Tampilkan total hari
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0), // Padding di awal & akhir list
+                    itemBuilder: (context, index) {
+                      
+                      // Hitung tanggal berdasarkan index
+                      final DateTime date = _calendarStartDate.add(Duration(days: index));
+                      
                       final dayName = _getDayName(date);
                       final dayNumber = date.day;
                       final isSelected = DateUtils.isSameDay(date, _selectedDate);
-                      
-                      // --- LOGIKA TANGGAL ABU-ABU ---
-                      final DateTime dateOnly = DateUtils.dateOnly(date);
-                      final bool isPast = dateOnly.isBefore(today);
-                      // -------------------------------
+                      final bool isPast = date.isBefore(today); // Cek apakah tanggal sudah lewat
 
-                      return GestureDetector(
-                      onTap: isPast ? null : () { // <-- JANGAN LAKUKAN APAPUN JIKA isPast
-                        setState(() { _selectedDate = date; });
-                      },
-                      child: Container(
-                        width: 50,
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                        decoration: BoxDecoration(
-                        color: isSelected && !isPast ? const Color(0xFF4DB6AC) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                        border: isSelected && !isPast
-                            ? null 
-                            : Border.all(
-                                color: isPast ? Colors.grey.shade300 : Colors.grey.shade400, // <-- ABU-ABU JIKA isPast
-                                width: 1,
+                      // Gunakan Padding untuk spasi antar item
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: GestureDetector(
+                          onTap: isPast ? null : () { // <-- JANGAN LAKUKAN APAPUN JIKA isPast
+                            setState(() { 
+                              _selectedDate = date; 
+                              _selectedMonth = date.month;
+                              _selectedYear = date.year;
+
+                              // Sinkronkan tanggal di form
+                              if (_mulai != null) {
+                                _mulai = DateTime(date.year, date.month, date.day, _mulai!.hour, _mulai!.minute);
+                              }
+                              if (_selesai != null) {
+                                _selesai = DateTime(date.year, date.month, date.day, _selesai!.hour, _selesai!.minute);
+                              }
+                            });
+                            _scrollToSelectedDate(); // Panggil scroll saat di-tap
+                          },
+                          child: Container(
+                            width: 50,
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected && !isPast ? const Color(0xFF4DB6AC) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(16),
+                              border: isSelected && !isPast
+                                  ? null
+                                  : Border.all(
+                                      color: isPast ? Colors.grey.shade300 : Colors.grey.shade400, // <-- ABU-ABU JIKA isPast
+                                      width: 1,
+                                    ),
+                            ),
+                            child: Opacity(
+                              opacity: isPast ? 0.5 : 1.0, // <-- Buat transparan jika isPast
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    dayName,
+                                    style: GoogleFonts.poppins(
+                                      color: isSelected && !isPast
+                                          ? Colors.white
+                                          : (isPast ? Colors.grey.shade400 : Colors.grey.shade600),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    dayNumber.toString(),
+                                    style: GoogleFonts.poppins(
+                                      color: isSelected && !isPast
+                                          ? Colors.white
+                                          : (isPast ? Colors.grey.shade400 : Colors.black87),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 5, width: 5), // Placeholder
+                                ],
                               ),
-                        ),
-                        child: Opacity(
-                          opacity: isPast ? 0.5 : 1.0, // <-- Buat transparan jika isPast
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                dayName,
-                                style: GoogleFonts.poppins(
-                                  color: isSelected && !isPast
-                                      ? Colors.white 
-                                      : (isPast ? Colors.grey.shade400 : Colors.grey.shade600),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                dayNumber.toString(),
-                                style: GoogleFonts.poppins(
-                                  color: isSelected && !isPast
-                                      ? Colors.white 
-                                      : (isPast ? Colors.grey.shade400 : Colors.black87),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              const SizedBox(height: 5, width: 5), // Placeholder
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
-                ),           
-              ),
-            ],
+                      );
+                    },
+                  ),
+                ),
+                // --- AKHIR PERBAIKAN 5 ---
+              ],
+            ),
           ),
-        ),
-               
-            // Form Content
-            Expanded(
-              child : Container(
-                color : Colors.grey.shade100,
-                child : Form(
-                  key : _formKey,
-                  child: SingleChildScrollView(
+
+          // Form Content
+          Expanded(
+            child: Container(
+              color: Colors.grey.shade100,
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  // --- CATATAN: ScrollController utama form tidak terpasang ---
+                  // Jika Anda ingin scroll form, pasang controller di sini
+                  // controller: _formScrollController, 
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
@@ -540,8 +606,8 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: Colors.black87,
-                          ),              
-                        ),            
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         Container(
                           decoration: BoxDecoration(
@@ -551,7 +617,7 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                           ),
                           child: TextFormField(
                             controller: _judulController,
-                            style : GoogleFonts.poppins(
+                            style: GoogleFonts.poppins(
                               color: Colors.black,
                               fontSize: 14,
                             ),
@@ -600,7 +666,7 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal:12,
+                                  horizontal: 12,
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
@@ -644,7 +710,7 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                                   ),
                                   const SizedBox(height: 12),
                                   GestureDetector(
-                                    onTap: () => _pickDateTime(isMulai : true),
+                                    onTap: () => _pickDateTime(isMulai: true),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 12,
@@ -789,7 +855,7 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                                                 ..._peserta.take(7).map((participant) {
                                                   final avatarUrl = participant['avatar']?.toString() ?? '';
                                                   final bool isNetwork = avatarUrl.startsWith('http');
-                                                  
+
                                                   return Container(
                                                     width: 36,
                                                     height: 36,
@@ -797,19 +863,19 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                                                       shape: BoxShape.circle,
                                                       border: Border.all(color: Colors.white, width: 2),
                                                       color: participant['color'] ?? Colors.grey.shade300,
-                                                      image: isNetwork 
-                                                        ? DecorationImage(
-                                                            image: NetworkImage(avatarUrl),
-                                                            fit: BoxFit.cover,
-                                                          ) 
-                                                        : null,
+                                                      image: isNetwork
+                                                          ? DecorationImage(
+                                                              image: NetworkImage(avatarUrl),
+                                                              fit: BoxFit.cover,
+                                                            )
+                                                          : null,
                                                     ),
                                                     child: !isNetwork && avatarUrl.isNotEmpty
-                                                      ? Center(child: Text(avatarUrl, style: const TextStyle(fontSize: 16)))
-                                                      : null,
+                                                        ? Center(child: Text(avatarUrl, style: const TextStyle(fontSize: 16)))
+                                                        : null,
                                                   );
                                                 }), // <-- PERBAIKAN 3: Koma dihapus dari sini
-                                                
+
                                                 // Counter +N
                                                 if (_peserta.length > 7)
                                                   Container(
