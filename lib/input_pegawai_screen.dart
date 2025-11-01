@@ -64,8 +64,6 @@ class _InputPegawaiScreenState extends State<InputPegawaiScreen> {
       );
 
       bool dialogClosed = false;
-
-      // Simpan referensi Navigator sebelum showDialog
       final navigator = Navigator.of(context);
 
       await showDialog(
@@ -125,7 +123,6 @@ class _InputPegawaiScreenState extends State<InputPegawaiScreen> {
         },
       ).then((_) => dialogClosed = true);
 
-      // Gunakan referensi navigator yang disimpan
       if (mounted) {
         navigator.pop(newPegawai);
       }

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:simoni/models/user_model.dart';
 import 'package:simoni/home_screen.dart';
+import 'package:simoni/admin_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,7 +30,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // --- FUNGSI LOGIN YANG SUDAH DIUPDATE ---
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -41,42 +41,43 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       String email = _emailController.text.trim();
-      String password = _passwordController.text.trim(); // Gunakan password, bukan ID Pegawai
+      String password = _passwordController.text.trim();
 
-      // 1. Login dengan Firebase Auth
-      UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: email, password: password);
 
       if (userCredential.user != null && mounted) {
-        // 2. Ambil data user dari Firestore
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user!.uid)
             .get();
 
         if (userDoc.exists) {
-          // 3. Buat objek UserModel
           UserModel userModel = UserModel.fromFirestore(userDoc);
 
-          // 4. Navigasi ke HomeScreen dan kirim data user
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-                builder: (context) => HomeScreen(user: userModel)),
-          );
+          if (userModel.role == 'admin') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => AdminScreen()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HomeScreen(user: userModel),
+              ),
+            );
+          }
         } else {
-          // Handle jika data user tidak ada di firestore
           _showErrorSnackBar('Data pengguna tidak ditemukan.');
-          await FirebaseAuth.instance.signOut(); // Logout paksa
+          await FirebaseAuth.instance.signOut();
         }
       }
     } on FirebaseAuthException catch (e) {
-      // Handle error login
       String message;
-      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+      if (e.code == 'user-not-found' ||
+          e.code == 'wrong-password' ||
+          e.code == 'invalid-credential') {
         message = 'Email atau password yang Anda masukkan salah.';
       } else {
         message = 'Terjadi kesalahan. Coba lagi.';
@@ -96,15 +97,11 @@ class _LoginScreenState extends State<LoginScreen> {
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          message,
-          style: GoogleFonts.poppins(color: Colors.white),
-        ),
+        content: Text(message, style: GoogleFonts.poppins(color: Colors.white)),
         backgroundColor: Colors.redAccent,
       ),
     );
   }
-  // ------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 16.0),
         Text(
-          'Password', // <-- GANTI DARI "ID Pegawai"
+          'Password',
           style: GoogleFonts.poppins(
             fontSize: 16.0,
             fontWeight: FontWeight.w600,
@@ -224,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
           obscureText: !_isPasswordVisible,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           decoration: InputDecoration(
-            hintText: 'Masukkan Password Anda', // <-- GANTI
+            hintText: 'Masukkan Password Anda',
             hintStyle: GoogleFonts.poppins(
               color: Colors.grey[500],
               fontSize: 14.0,
@@ -253,7 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'Password tidak boleh kosong'; // <-- GANTI
+              return 'Password tidak boleh kosong';
             }
             return null;
           },
@@ -261,8 +258,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ],
     );
   }
-  
-  // (Sisa kode _buildLoginButton dan _buildFooterText tetap sama)
 
   Widget _buildLoginButton() {
     return ElevatedButton(
