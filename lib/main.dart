@@ -7,13 +7,10 @@ import 'package:simoni/home_screen.dart';
 import 'package:simoni/task_list.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-// Gunakan HANYA SATU fungsi main yang menginisialisasi Firebase
-void main() async { // <-- Pastikan async
-  // Pastikan binding siap
+// Gunakan HANYA SATU fungsi main
+void main() async { 
   WidgetsFlutterBinding.ensureInitialized();
-  // Inisialisasi Firebase
   await Firebase.initializeApp();
-  // Jalankan aplikasi
   runApp(const MyApp());
 }
 
@@ -26,8 +23,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'SIMONI App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      // Pastikan HANYA SATU argumen home dan menunjuk ke SplashScreen
-      home: const SplashScreen(),
+      // Pastikan HANYA SATU 'home' dan menunjuk ke SplashScreen
+      home: const SplashScreen(), 
       debugShowCheckedModeBanner: false,
     );
   }

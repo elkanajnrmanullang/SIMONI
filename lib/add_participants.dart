@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart'; // <-- Import GoogleFonts
+import 'package:cloud_firestore/cloud_firestore.dart'; // <-- Import Firestore
+// (Anda mungkin perlu import UserModel jika Anda mengopernya, tapi untuk sekarang kita tidak membutuhkannya di sini)
 
 class AddParticipantsScreen extends StatefulWidget {
   final List<Map<String, dynamic>> selectedParticipants;
+  // Opsional: Anda bisa mengirim user yang login untuk memfilter dirinya sendiri
+  // final UserModel currentUser; 
 
-  const AddParticipantsScreen({Key? key, required this.selectedParticipants})
-    : super(key: key);
+  const AddParticipantsScreen({
+    Key? key, 
+    required this.selectedParticipants,
+    // this.currentUser,
+  }) : super(key: key);
 
   @override
   State<AddParticipantsScreen> createState() => _AddParticipantsScreenState();
@@ -13,88 +21,23 @@ class AddParticipantsScreen extends StatefulWidget {
 class _AddParticipantsScreenState extends State<AddParticipantsScreen> {
   late List<Map<String, dynamic>> _selectedParticipants;
   final TextEditingController _searchController = TextEditingController();
-  List<Map<String, dynamic>> _filteredParticipants = [];
 
-  // Daftar semua peserta yang tersedia
-  final List<Map<String, dynamic>> _allParticipants = [
-    {
-      'id': '1',
-      'name': 'Siti Nurhayati',
-      'role': 'Kepala UPTD',
-      'avatar': 'https://i.pravatar.cc/150?img=5',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '2',
-      'name': 'Bambang Supriyanto',
-      'role': 'Kepala Subag. umum',
-      'avatar': 'https://i.pravatar.cc/150?img=12',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '3',
-      'name': 'Indah Lestari',
-      'role': 'Kepala Mutu Pangan',
-      'avatar': 'https://i.pravatar.cc/150?img=10',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '4',
-      'name': 'Nova Putri',
-      'role': 'Pengendali Mutu',
-      'avatar': 'https://i.pravatar.cc/150?img=16',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '5',
-      'name': 'Rudiyanto',
-      'role': 'Kepala Seksi Keamanan',
-      'avatar': 'https://i.pravatar.cc/150?img=8',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '6',
-      'name': 'Fajar Nugroho',
-      'role': 'Pranata Komputer',
-      'avatar': 'https://i.pravatar.cc/150?img=13',
-      'color':Colors.grey[400]!,
-    },
-    {
-      'id': '7',
-      'name': 'Dedi Kurnia',
-      'role': 'Staf Pengolahan Data',
-      'avatar': 'https://i.pravatar.cc/150?img=7',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '8',
-      'name': 'Sumarno',
-      'role': 'Staf Logistik',
-      'avatar': 'https://i.pravatar.cc/150?img=11',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '9',
-      'name': 'Laily Sari',
-      'role': 'Pengawas Mutu Senior',
-      'avatar': 'https://i.pravatar.cc/150?img=20',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '10',
-      'name': 'Hendra Wijaya',
-      'role': 'Teknisi Laboratorium',
-      'avatar': 'https://i.pravatar.cc/150?img=14',
-      'color': Colors.grey[400]!,
-    },
-  ];
+  // --- State untuk data dari Firestore ---
+  List<Map<String, dynamic>> _allParticipantsCache = []; // Cache data asli
+  List<Map<String, dynamic>> _filteredParticipants = []; // Untuk list yg tampil
+  bool _isLoading = true; // Status loading
+  // ------------------------------------
+
+  // HAPUS data dummy:
+  // final List<Map<String, dynamic>> _allParticipants = [ ... ];
 
   @override
   void initState() {
     super.initState();
     _selectedParticipants = List.from(widget.selectedParticipants);
-    _filteredParticipants = _allParticipants;
+    _filteredParticipants = []; // Mulai kosong saat loading
     _searchController.addListener(_onSearchChanged);
+    _fetchParticipants(); // Panggil fungsi fetch data
   }
 
   @override
@@ -103,12 +46,57 @@ class _AddParticipantsScreenState extends State<AddParticipantsScreen> {
     super.dispose();
   }
 
+  // --- FUNGSI BARU: Ambil data 'users' dari Firestore ---
+  Future<void> _fetchParticipants() async {
+    try {
+      QuerySnapshot userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          // Opsional: Filter hanya 'pegawai' jika 'admin' tidak boleh jadi peserta
+          // .where('role', isEqualTo: 'pegawai') 
+          .get();
+
+      List<Map<String, dynamic>> users = [];
+      for (var doc in userSnapshot.docs) {
+        // Opsional: Jangan tambahkan diri sendiri ke daftar (jika currentUser di-pass)
+        // if (widget.currentUser != null && doc.id == widget.currentUser.uid) {
+        //   continue; 
+        // }
+        
+        final data = doc.data() as Map<String, dynamic>;
+        users.add({
+          'id': doc.id, // Gunakan Doc ID dari Firestore
+          'name': data['nama'] ?? 'Tanpa Nama',
+          'role': data['jabatan'] ?? 'Tanpa Jabatan', // Gunakan 'jabatan' dari Firestore
+          'avatar': data['avatarURL'] ?? 'https://i.pravatar.cc/150?img=1', // Gunakan 'avatarURL' (fallback ke default)
+          'color': Colors.grey[400]!, // Anda bisa hapus 'color' jika tidak dipakai
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _allParticipantsCache = users; // Simpan di cache
+          _filteredParticipants = users; // Tampilkan semua di awal
+          _isLoading = false; // Selesai loading
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+         setState(() { _isLoading = false; }); // Selesai loading (gagal)
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('Gagal memuat pegawai: $e'), backgroundColor: Colors.red),
+         );
+      }
+    }
+  }
+  // --- AKHIR FUNGSI FETCH ---
+
   void _onSearchChanged() {
     setState(() {
       if (_searchController.text.isEmpty) {
-        _filteredParticipants = _allParticipants;
+        _filteredParticipants = _allParticipantsCache; // Gunakan cache
       } else {
-        _filteredParticipants = _allParticipants.where((participant) {
+        _filteredParticipants = _allParticipantsCache.where((participant) {
+          // Cari berdasarkan nama
           return participant['name'].toString().toLowerCase().contains(
             _searchController.text.toLowerCase(),
           );
@@ -142,13 +130,12 @@ class _AddParticipantsScreenState extends State<AddParticipantsScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Semua Pegawai',
-          style: TextStyle(
+          style: GoogleFonts.poppins( // Terapkan GoogleFonts
             color: Colors.black,
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
           ),
         ),
       ),
@@ -164,13 +151,12 @@ class _AddParticipantsScreenState extends State<AddParticipantsScreen> {
               ),
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(fontFamily: 'Poppins'),
+                style: GoogleFonts.poppins(), // Terapkan GoogleFonts
                 decoration: InputDecoration(
                   hintText: 'Cari Pegawai',
-                  hintStyle: TextStyle(
+                  hintStyle: GoogleFonts.poppins( // Terapkan GoogleFonts
                     color: Colors.grey.shade400,
                     fontSize: 14,
-                    fontFamily: 'Poppins',
                   ),
                   prefixIcon: Icon(
                     Icons.search,
@@ -187,136 +173,110 @@ class _AddParticipantsScreenState extends State<AddParticipantsScreen> {
             ),
           ),
 
-          // List of Participants
+          // --- GANTI ListView DENGAN LOGIKA LOADING ---
           Expanded(
-            child: _filteredParticipants.isEmpty
-                ? Center(
-                    child: Text(
-                      'Tidak ada pegawai ditemukan',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 14,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredParticipants.length,
-                    itemBuilder: (context, index) {
-                      final participant = _filteredParticipants[index];
-                      final isSelected = _isSelected(participant);
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF4DB6AC))) // Tampilkan loading
+                : _filteredParticipants.isEmpty
+                    ? Center( // Tampilkan jika hasil filter kosong
+                        child: Text(
+                          'Tidak ada pegawai ditemukan',
+                          style: GoogleFonts.poppins( // Terapkan GoogleFonts
+                            color: Colors.grey.shade500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      )
+                    : ListView.builder( // Tampilkan list jika data ada
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _filteredParticipants.length,
+                        itemBuilder: (context, index) {
+                          final participant = _filteredParticipants[index];
+                          final isSelected = _isSelected(participant);
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: InkWell(
-                          onTap: () => _toggleSelection(participant),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Row(
-                            children: [
-                              // Avatar with colored border
-                              Stack(
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: InkWell(
+                              onTap: () => _toggleSelection(participant),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Row(
                                 children: [
+                                  // Avatar
+                                  Stack(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 24, // Sesuaikan ukuran
+                                        backgroundImage: NetworkImage(
+                                          participant['avatar'], // Gunakan URL dari data
+                                        ),
+                                        backgroundColor: Colors.grey.shade200,
+                                      ),
+                                      // ... (Logika online indicator Anda bisa tetap di sini) ...
+                                      // if (index % 3 == 0) 
+                                      //   Positioned(...)
+                                    ],
+                                  ),
+                                  const SizedBox(width: 12),
+
+                                  // Name and Role
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          participant['name'],
+                                          style: GoogleFonts.poppins( // Terapkan GoogleFonts
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          participant['role'],
+                                          style: GoogleFonts.poppins( // Terapkan GoogleFonts
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Checkbox (tetap sama)
                                   Container(
-                                    width: 48,
-                                    height: 48,
+                                    width: 24,
+                                    height: 24,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
+                                      color: isSelected
+                                          ? const Color(0xFF4DB6AC)
+                                          : Colors.transparent,
                                       border: Border.all(
-                                        color: participant['color'],
+                                        color: isSelected
+                                            ? const Color(0xFF4DB6AC)
+                                            : Colors.grey.shade400,
                                         width: 2,
                                       ),
                                     ),
-                                    child: CircleAvatar(
-                                      radius: 22,
-                                      backgroundImage: NetworkImage(
-                                        participant['avatar'],
-                                      ),
-                                      backgroundColor: Colors.grey.shade200,
-                                    ),
-                                  ),
-                                  // Online indicator (green dot)
-                                  if (index % 3 == 0) // Simulasi online status
-                                    Positioned(
-                                      right: 2,
-                                      bottom: 2,
-                                      child: Container(
-                                        width: 12,
-                                        height: 12,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF4CAF50),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
+                                    child: isSelected
+                                        ? const Icon(
+                                            Icons.check,
                                             color: Colors.white,
-                                            width: 2,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                                            size: 16,
+                                          )
+                                        : null,
+                                  ),
                                 ],
                               ),
-                              const SizedBox(width: 12),
-
-                              // Name and Role
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      participant['name'],
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black87,
-                                        fontFamily: 'Poppins',
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      participant['role'],
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                        fontFamily: 'Poppins',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Checkbox
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isSelected
-                                      ? const Color(0xFF4DB6AC)
-                                      : Colors.transparent,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? const Color(0xFF4DB6AC)
-                                        : Colors.grey.shade400,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: isSelected
-                                    ? const Icon(
-                                        Icons.check,
-                                        color: Colors.white,
-                                        size: 16,
-                                      )
-                                    : null,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                            ),
+                          );
+                        },
+                      ),
           ),
+          // --- AKHIR PERUBAHAN LISTVIEW ---
 
-          // Bottom Button
+          // Bottom Button (tetap sama)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -338,10 +298,9 @@ class _AddParticipantsScreenState extends State<AddParticipantsScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
                       '${_selectedParticipants.length} peserta terpilih',
-                      style: TextStyle(
+                      style: GoogleFonts.poppins( // Terapkan GoogleFonts
                         color: Colors.grey.shade600,
                         fontSize: 13,
-                        fontFamily: 'Poppins',
                       ),
                     ),
                   ),
@@ -361,13 +320,12 @@ class _AddParticipantsScreenState extends State<AddParticipantsScreen> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Simpan',
-                      style: TextStyle(
+                      style: GoogleFonts.poppins( // Terapkan GoogleFonts
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
-                        fontFamily: 'Poppins',
                       ),
                     ),
                   ),

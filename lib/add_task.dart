@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:simoni/add_participants.dart';
+import 'package:simoni/models/user_model.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TambahTugasScreen extends StatefulWidget {
-  const TambahTugasScreen({Key? key}) : super(key: key);
+  final UserModel user; // <-- Menerima data user
+  const TambahTugasScreen({Key? key, required this.user}) : super(key: key);
 
   @override
   State<TambahTugasScreen> createState() => _TambahTugasScreenState();
@@ -13,7 +18,7 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final ScrollController _scrollController = ScrollController();
 
-  // Form controllers / state
+  // Form controllers
   final TextEditingController _judulController = TextEditingController();
   String? _selectedKategori;
   DateTime? _mulai;
@@ -35,95 +40,10 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
     'Pengawasan & Keamanan Pangan',
   ];
 
-  // Sample participants with avatars
-  final List<Map<String, dynamic>> _availableParticipants =
-  [
-    {
-      'id': '1',
-      'name': 'Siti Nurhayati',
-      'role': 'Kepala UPTD',
-      'avatar': '👩',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '2',
-      'name': 'Bambang Supriyanto',
-      'role': 'Kepala Subag. umum',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '3',
-      'name': 'Indah Lestari',
-      'role': 'Kepala Mutu Pangan',
-      'avatar': '👩',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '4',
-      'name': 'Nova Putri',
-      'role': 'Pengendali Mutu',
-      'avatar': '👩',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '5',
-      'name': 'Rudiyanto',
-      'role': 'Kepala Seksi Keamanan',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '6',
-      'name': 'Fajar Nugroho',
-      'role': 'Pranata Komputer',
-      'avatar': '👨',
-      'color':Colors.grey[400]!,
-    },
-    {
-      'id': '7',
-      'name': 'Dedi Kurnia',
-      'role': 'Staf Pengolahan Data',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '8',
-      'name': 'Sumarno',
-      'role': 'Staf Logistik',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '9',
-      'name': 'Laily Sari',
-      'role': 'Pengawas Mutu Senior',
-      'avatar': '👩',
-      'color': Colors.grey[400]!,
-    },
-    {
-      'id': '10',
-      'name': 'Hendra Wijaya',
-      'role': 'Teknisi Laboratorium',
-      'avatar': '👨',
-      'color': Colors.grey[400]!,
-    },
-  ];
-
-
-  // Sample data untuk tasks yang ada (contoh)
-  // Ganti dengan data sebenarnya dari database/API Anda
-  final List<Map<String, dynamic>> _existingTasks = [
-    {'date': DateTime(2025, 10, 29), 'title': 'Meeting'},
-    {'date': DateTime(2025, 10, 29), 'title': 'Review'},
-    {'date': DateTime(2025, 10, 31), 'title': 'Inspeksi'},
-    {'date': DateTime(2025, 10, 31), 'title': 'Laporan'},
-    {'date': DateTime(2025, 10, 27), 'title': 'Audit'},
-  ];
-
   @override
   void initState() {
     super.initState();
+    initializeDateFormatting('id_ID', null); // Inisialisasi locale
 
     _mulai = DateTime.now();
     _selesai = DateTime.now().add(const Duration(hours: 1));
@@ -145,8 +65,8 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
 
   List<DateTime> _getWeekDays() {
     DateTime now = _selectedDate;
-    DateTime startOfWeek = now.subtract(Duration(days: 3)); // Start 3 days before
-    
+    // Awal minggu hari Senin (now.weekday - 1)
+    DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1)); 
     List<DateTime> weekDays = [];
     for (int i = 0; i < 7; i++) {
       weekDays.add(startOfWeek.add(Duration(days: i)));
@@ -157,7 +77,7 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
   void _scrollToSelectedDate() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        (45.0 + 8.0) * 3, // Width of each date item + spacing, multiplied by 3 for center
+        (50.0 + 8.0) * 3, // Sesuaikan dengan lebar item (50) + padding (8)
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
@@ -165,82 +85,61 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
   }
 
   String _getDayName(DateTime date) {
-    const days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-    return days[date.weekday - 1];
-  }
-
-  // Fungsi untuk mengecek apakah tanggal memiliki tugas
-  bool _hasTasksOnDate(DateTime date) {
-    return _existingTasks.any((task) {
-      DateTime taskDate = task['date'];
-      return taskDate.year == date.year &&
-             taskDate.month == date.month &&
-             taskDate.day == date.day;
-    });
+    return DateFormat('E', 'id_ID').format(date); // Versi intl
   }
 
   void _previousMonth() {
     setState(() {
-      if (_selectedMonth == 1) {
-        _selectedMonth = 12;
-        _selectedYear--;
+      DateTime newDate = DateTime(_selectedYear, _selectedMonth - 1, _selectedDate.day);
+      int maxDay = DateUtils.getDaysInMonth(newDate.year, newDate.month);
+      if (newDate.day > maxDay) {
+        _selectedDate = DateTime(newDate.year, newDate.month, maxDay);
       } else {
-        _selectedMonth--;
+        _selectedDate = newDate;
       }
-
-      int maxDay = DateUtils.getDaysInMonth(_selectedYear, _selectedMonth);
-      int newDay = _selectedDate.day.clamp(1, maxDay);
-
-      _selectedDate = DateTime(_selectedYear, _selectedMonth, newDay);
+      _selectedMonth = _selectedDate.month;
+      _selectedYear = _selectedDate.year;
       _scrollToSelectedDate();
     });
   }
 
   void _nextMonth() {
     setState(() {
-      if (_selectedMonth == 12) {
-        _selectedMonth = 1;
-        _selectedYear++;
-      } else {
-        _selectedMonth++;
-      }
-
-      int maxDay = DateUtils.getDaysInMonth(_selectedYear, _selectedMonth);
-      int newDay = _selectedDate.day.clamp(1, maxDay);
-
-      _selectedDate = DateTime(_selectedYear, _selectedMonth, newDay);
+       DateTime newDate = DateTime(_selectedYear, _selectedMonth + 1, _selectedDate.day);
+       int maxDay = DateUtils.getDaysInMonth(newDate.year, newDate.month);
+       if (newDate.day > maxDay) {
+         _selectedDate = DateTime(newDate.year, newDate.month, maxDay);
+       } else {
+         _selectedDate = newDate;
+       }
+      _selectedMonth = _selectedDate.month;
+      _selectedYear = _selectedDate.year;
       _scrollToSelectedDate();
     });
   }
 
   String _getMonthName(int month) {
-    const months = [
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
-      'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember',
-    ];
-    return months[month - 1];
+    return DateFormat('MMMM', 'id_ID').format(DateTime(_selectedYear, month));
   }
 
   Future<void> _pickDateTime({required bool isMulai}) async {
     final DateTime now = DateTime.now();
+    // Tanggal pertama yang bisa dipilih adalah hari ini
+    final DateTime firstSelectableDate = DateUtils.dateOnly(now); 
+
     DateTime initialDate = isMulai
         ? (_mulai ?? _selectedDate)
         : (_selesai ?? (_mulai ?? _selectedDate));
+    
+    // Pastikan initialDate tidak sebelum hari ini
+    if (initialDate.isBefore(firstSelectableDate)) {
+      initialDate = firstSelectableDate;
+    }
 
     final DateTime? date = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: DateTime(now.year - 1),
+      firstDate: firstSelectableDate, // Hanya bisa pilih hari ini atau ke depan
       lastDate: DateTime(now.year + 5),
     );
     if (date == null) return;
@@ -252,72 +151,92 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
     if (time == null) return;
 
     final DateTime combined = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
+      date.year, date.month, date.day, time.hour, time.minute,
     );
+
+    // Cek apakah waktu yang dipilih sudah lewat
+    if (combined.isBefore(DateTime.now().subtract(const Duration(minutes: 1)))) {
+       ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat memilih waktu yang sudah lewat'),
+            backgroundColor: Colors.orange,
+          ),
+       );
+       return;
+    }
 
     setState(() {
       if (isMulai) {
         _mulai = combined;
+        _selectedDate = combined; // Update kalender ke tanggal yg dipilih
+        _selectedMonth = combined.month;
+        _selectedYear = combined.year;
         if (_selesai != null && _selesai!.isBefore(_mulai!)) {
           _selesai = null;
         }
       } else {
-        _selesai = combined;
+        if (_mulai != null && combined.isBefore(_mulai!)) {
+           ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Waktu selesai tidak boleh sebelum waktu mulai'),
+                backgroundColor: Colors.orange,
+              ),
+           );
+        } else {
+           _selesai = combined;
+           _selectedDate = combined; // Update kalender ke tanggal yg dipilih
+           _selectedMonth = combined.month;
+           _selectedYear = combined.year;
+        }
       }
     });
   }
 
   String _formatDateTimeShort(DateTime? dt) {
     if (dt == null) return 'Pilih waktu';
-    return DateFormat('d MMM, HH:mm').format(dt);
+    return DateFormat('d MMM, HH:mm', 'id_ID').format(dt);
   }
   
-
-  void _togglePeserta(Map<String, dynamic> participant) {
-    setState(() {
-      final index = _peserta.indexWhere(
-        (p) => p['name'] == participant['name'],
-      );
-      if (index >= 0) {
-        _peserta.removeAt(index);
-      } else {
-        _peserta.add(participant);
-      }
-    });
-  }
-
-  bool _isPesertaSelected(Map<String, dynamic> participant) {
-    return _peserta.any((p) => p['name'] == participant['name']);
-  }
-
   Future<void> _navigateToAddParticipants() async {
-  final result = await Navigator.push<List<Map<String, dynamic>>>(
-    context,
-    MaterialPageRoute(
-      builder: (context) => AddParticipantsScreen(
-        selectedParticipants: _peserta,
+    final result = await Navigator.push<List<Map<String, dynamic>>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddParticipantsScreen(
+          selectedParticipants: _peserta,
+          // currentUser: widget.user, // Kirim user jika add_participants perlu
+        ),
       ),
-    ),
-  );
+    );
 
-  if (result != null) {
-    setState(() {
-      _peserta.clear();
-      _peserta.addAll(result);
-    });
+    if (result != null) {
+      setState(() {
+        _peserta.clear();
+        _peserta.addAll(result);
+      });
+    }
   }
-}
 
+  // --- FUNGSI SUBMIT (INTEGRASI FIREBASE) ---
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_judulController.text.trim().isEmpty) {
+    
+    // Cek apakah tanggal yang dipilih sudah lewat
+    final DateTime today = DateUtils.dateOnly(DateTime.now());
+    final DateTime selectedDay = DateUtils.dateOnly(_selectedDate);
+    if (selectedDay.isBefore(today)) {
+       ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat menambah tugas untuk tanggal yang sudah lewat'),
+            backgroundColor: Colors.red,
+          ),
+       );
+       return;
+    }
+
+    if (_selectedKategori == null ) { 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Silakan isi judul tugas'),
+          content: Text('Silakan pilih kategori tugas/kegiatan'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -334,26 +253,123 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
     }
 
     setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(seconds: 1));
 
-    if (!mounted) return;
+    try {
+      List<String> pesertaIDs = _peserta.map((p) => p['id'].toString()).toList();
+      
+      Map<String, dynamic> taskData = {
+        'judul': _judulController.text.trim(),
+        'kategori': _selectedKategori,
+        'waktuMulai': Timestamp.fromDate(_mulai!),
+        'waktuSelesai': Timestamp.fromDate(_selesai!),
+        // Gunakan _mulai (yang sudah divalidasi) sebagai tanggal target
+        'tanggalTarget': Timestamp.fromDate(_mulai!), 
+        'pembuatID': widget.user.uid, 
+        'pesertaIDs': pesertaIDs,
+        'status': 'tertunda',
+        'deskripsi': '', 
+      };
 
-    setState(() => _isSubmitting = false);
+      await FirebaseFirestore.instance.collection('tugas').add(taskData);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tugas berhasil dibuat!'),
-        backgroundColor: Color(0xFF4CAF50),
-        duration: Duration(seconds: 2),
-      ),
+      if (!mounted) return;
+      _showSuccessDialog();
+
+    } catch (e) {
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membuat tugas: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  } 
+
+  // --- Fungsi Dialog Sukses ---
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        Future.delayed(const Duration(seconds: 2), () {
+          Navigator.of(context, rootNavigator: true).pop(); // tutup dialog
+          if (mounted){
+            Navigator.of(context).pop(); // kembali ke layar sebelumnya
+          } 
+        });
+
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white, 
+                    border: Border.all(
+                      color: const Color(0xFF2D7063), 
+                      width: 4,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Color(0xFF2D7063),
+                    size: 45,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Tersimpan!',
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tugas Anda Berhasil Dibuat.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
-
-    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final weekDays = _getWeekDays();
+    final appBarDate = DateFormat('d MMMM', 'id_ID').format(_selectedDate);
+    // Variabel untuk mengecek hari ini (tanpa jam)
+    final DateTime today = DateUtils.dateOnly(DateTime.now());
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -365,34 +381,18 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          '${_selectedDate.day} ${_getMonthName(_selectedDate.month)}',
-          style: const TextStyle(
+          appBarDate,
+          style: GoogleFonts.poppins(
             color: Colors.black,
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
           ),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(40),
           child: Padding(
             padding: const EdgeInsets.only(
-              left: 16.0,
-              right: 16.0,
-              bottom: 12.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                const Text(
-                  '0 tugas hari ini',
-                  style: TextStyle(
-                    color: Colors.grey, 
-                    fontSize: 12, 
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ],
+              left: 16.0, right: 16.0, bottom: 12.0,
             ),
           ),
         ),
@@ -422,19 +422,28 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.chevron_left),
-                          onPressed: _previousMonth,
+                          // Logika untuk menonaktifkan tombol 'previous month'
+                          onPressed: () {
+                            DateTime firstDayOfCurrentMonth = DateTime(today.year, today.month, 1);
+                            DateTime firstDayOfSelectedMonth = DateTime(_selectedYear, _selectedMonth, 1);
+                            if (firstDayOfSelectedMonth.isAfter(firstDayOfCurrentMonth)) {
+                              _previousMonth();
+                            }
+                          },
+                          color: DateTime(_selectedYear, _selectedMonth, 1).isAfter(DateTime(today.year, today.month, 1))
+                                 ? Colors.black87
+                                 : Colors.grey[300],
                         ),
                         Text(
                           '${_getMonthName(_selectedMonth)} $_selectedYear',
-                          style: const TextStyle(
+                          style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            fontFamily: 'Poppins',
                           ),
                         ),
                         IconButton(
                           icon: const Icon(Icons.chevron_right),
-                          onPressed: _nextMonth,
+                          onPressed: _nextMonth, // Selalu bisa ke bulan depan
                         ),
                       ],
                     ),
@@ -448,96 +457,69 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                     children: weekDays.map((date) {
                       final dayName = _getDayName(date);
                       final dayNumber = date.day;
-                      final isSelected = date.day == _selectedDate.day &&
-                        date.month == _selectedDate.month &&
-                        date.year == _selectedDate.year;
-
-                      // Check if this date has tasks (you'll need to implement this logic)
-                      final hasTasks = _hasTasksOnDate(date);
-                      // Check if date is in the past (more than 3 days before today)
-                      final today = DateTime.now();
-                      final todayOnly = DateTime(today.year, today.month, today.day);
-                      final dateOnly = DateTime(date.year, date.month, date.day);
-                      final isPast = dateOnly.isBefore(todayOnly);
-
+                      final isSelected = DateUtils.isSameDay(date, _selectedDate);
+                      
+                      // --- LOGIKA TANGGAL ABU-ABU ---
+                      final DateTime dateOnly = DateUtils.dateOnly(date);
+                      final bool isPast = dateOnly.isBefore(today);
+                      // -------------------------------
 
                       return GestureDetector(
-                      onTap: isPast ? null : () {
-                        setState(() {
-                        _selectedDate = date;
-                        });
+                      onTap: isPast ? null : () { // <-- JANGAN LAKUKAN APAPUN JIKA isPast
+                        setState(() { _selectedDate = date; });
                       },
                       child: Container(
                         width: 50,
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                         decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF4DB6AC) : Colors.transparent,
+                        color: isSelected && !isPast ? const Color(0xFF4DB6AC) : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
-                        border: isSelected 
+                        border: isSelected && !isPast
                             ? null 
                             : Border.all(
-                                color: isPast ? Colors.grey.shade500 : Colors.black,
+                                color: isPast ? Colors.grey.shade300 : Colors.grey.shade400, // <-- ABU-ABU JIKA isPast
                                 width: 1,
                               ),
                         ),
                         child: Opacity(
-                          opacity: isPast ? 0.8 : 1.0,
+                          opacity: isPast ? 0.5 : 1.0, // <-- Buat transparan jika isPast
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                              dayName,
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : 
-                                (isPast ? Colors.grey.shade400 : Colors.grey.shade600),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                fontFamily: 'Poppins',
+                                dayName,
+                                style: GoogleFonts.poppins(
+                                  color: isSelected && !isPast
+                                      ? Colors.white 
+                                      : (isPast ? Colors.grey.shade400 : Colors.grey.shade600),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              dayNumber.toString(),
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : 
-                                (isPast ? Colors.grey.shade400 : Colors.black),
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'Poppins',
+                              const SizedBox(height: 4),
+                              Text(
+                                dayNumber.toString(),
+                                style: GoogleFonts.poppins(
+                                  color: isSelected && !isPast
+                                      ? Colors.white 
+                                      : (isPast ? Colors.grey.shade400 : Colors.black87),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                              ),
-                            const SizedBox(height: 6),
-                            Container(
-                              width: 5,
-                              height: 5,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: () {
-                                  if (isSelected && hasTasks) {
-                                    return Colors.white; // Putih jika dipilih DAN ada task
-                                  } else if (isSelected && !hasTasks) {
-                                    return Colors.transparent; // Tidak ada dot jika dipilih tapi belum ada task
-                                  } else if (isPast && hasTasks) {
-                                    return Colors.grey.shade500; // Abu jika past dan ada task
-                                  } else if (!isPast && hasTasks) {
-                                    return const Color(0xFF4DB6AC); // Teal jika ada task dan belum past
-                                  } else {
-                                    return Colors.transparent; // Tidak ada dot
-                                  }
-                                }(),
-                              ),
-                            ),
-                          ],
+                              const SizedBox(height: 6),
+                              const SizedBox(height: 5, width: 5), // Placeholder
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),           
-            ),
-          ],
+                    );
+                  }).toList(),
+                ),           
+              ),
+            ],
+          ),
         ),
-      ),
                
             // Form Content
             Expanded(
@@ -552,330 +534,313 @@ class _TambahTugasScreenState extends State<TambahTugasScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Judul Tugas Section
-                        const Text(
+                        Text(
                           'Judul Tugas',
-                          style: TextStyle(
+                          style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: Colors.black87,
-                            fontFamily: 'Poppins',
                           ),              
-                          ),            
-                          const SizedBox(height: 12),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
+                        ),            
+                        const SizedBox(height: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
                           child: TextFormField(
-                        controller: _judulController,
-                        style : const TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: 'Poppins',
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Masukkan judul tugas',
-                          hintStyle: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: 14,
-                            fontFamily: 'Poppins',
+                            controller: _judulController,
+                            style : GoogleFonts.poppins(
+                              color: Colors.black,
+                              fontSize: 14,
                             ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Kategori Section
-                    const Text(
-                      'Kategori',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _kategoriOptions.map((kategori) {
-                        final isSelected = _selectedKategori == kategori;
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedKategori = isSelected ? null : kategori;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal:10,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFF4DB6AC)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isSelected
-                                    ? const Color(0xFF4DB6AC)
-                                    : Colors.grey.shade300,
+                            decoration: InputDecoration(
+                              hintText: 'Masukkan judul tugas',
+                              hintStyle: GoogleFonts.poppins(
+                                color: Colors.grey.shade400,
+                                fontSize: 14,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
                               ),
                             ),
-                            child: Text(
-                              kategori,
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.grey[700],
-                                fontSize: 13,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Waktu Section
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Mulai',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                  fontFamily: 'Poppins',
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () => _pickDateTime(isMulai : true),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        _formatDateTimeShort(_mulai),
-                                        style: TextStyle(
-                                          color: Colors.grey[800],
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                          fontFamily: 'Poppins',
-                                        ),
-                                      ),
-                                
-                                      Icon(
-                                        Icons.keyboard_arrow_down,
-                                        color: Colors.grey[800],
-                                        size: 20,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Judul tidak boleh kosong';
+                              }
+                              return null;
+                            },
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Selesai',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                  fontFamily: 'Poppins',
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () => _pickDateTime(isMulai: false),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        _formatDateTimeShort(_selesai),
-                                        style: TextStyle(
-                                          color: Colors.grey[800],
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                          fontFamily: 'Poppins',
-                                        ),
-                                      ),
-                                      
-                                      Icon(
-                                        Icons.keyboard_arrow_down,
-                                        color: Colors.grey[800],
-                                        size: 20,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                        const SizedBox(height: 24),
+
+                        // Kategori Section
+                        Text(
+                          'Kategori',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Tambah Peserta Section
-const Text(
-  'Peserta',
-  style: TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: Colors.black87,
-    fontFamily: 'Poppins',
-  ),
-),
-const SizedBox(height: 12),
-
-Row(
-  crossAxisAlignment: CrossAxisAlignment.center,
-  children: [
-    // Add button (circle dengan icon +)
-    GestureDetector(
-      onTap: _navigateToAddParticipants,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.grey.shade400, width: 1.5),
-          color: Colors.white,
-        ),
-        child: Icon(
-          Icons.add,
-          color: Colors.grey.shade700,
-          size: 24,
-        ),
-      ),
-    ),
-    const SizedBox(width: 12),
-    
-    // Tambah Peserta box dengan avatar
-    Expanded(
-      child: GestureDetector(
-        onTap: _navigateToAddParticipants,
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: _peserta.isEmpty
-              ? Text(
-                  'Tambah Peserta',
-                  style: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'Poppins',
-                  ),
-                )
-              : Row(
-                  children: [
-                    // Tampilkan avatar peserta
-                    Expanded(
-                      child: Wrap(
-                        spacing: -8, // Overlap avatars
-                        children: [
-                          ..._peserta.take(5).map((participant) {
-                            return Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _kategoriOptions.map((kategori) {
+                            final isSelected = _selectedKategori == kategori;
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedKategori = isSelected ? null : kategori;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal:12,
+                                  vertical: 8,
                                 ),
-                                image: DecorationImage(
-                                  image: NetworkImage(participant['avatar']),
-                                  fit: BoxFit.cover,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFF4DB6AC)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? const Color(0xFF4DB6AC)
+                                        : Colors.grey.shade400,
+                                  ),
+                                ),
+                                child: Text(
+                                  kategori,
+                                  style: GoogleFonts.poppins(
+                                    color: isSelected ? Colors.white : Colors.grey[700],
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                             );
-                          }),
-                          // Jika ada lebih dari 5 peserta, tampilkan +N
-                          if (_peserta.length > 5)
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade300,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '+${_peserta.length - 5}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade700,
-                                    fontFamily: 'Poppins',
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Waktu Section
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Mulai',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
                                   ),
+                                  const SizedBox(height: 12),
+                                  GestureDetector(
+                                    onTap: () => _pickDateTime(isMulai : true),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[200],
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            _formatDateTimeShort(_mulai),
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.grey[800],
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.keyboard_arrow_down,
+                                            color: Colors.grey[800],
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Selesai',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  GestureDetector(
+                                    onTap: () => _pickDateTime(isMulai: false),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[200],
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            _formatDateTimeShort(_selesai),
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.grey[800],
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.keyboard_arrow_down,
+                                            color: Colors.grey[800],
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Tambah Peserta Section
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            GestureDetector(
+                              onTap: _navigateToAddParticipants,
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFF2D7063), width: 1.5),
+                                  color: Colors.white,
+                                ),
+                                child: Icon(
+                                  Icons.add,
+                                  color: const Color(0xFF2D7063),
+                                  size: 24,
                                 ),
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_peserta.length} Peserta',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
-    ),
-  ],
-),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: _navigateToAddParticipants,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: _peserta.isEmpty
+                                      ? Text(
+                                          'Tambah Peserta',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.grey.shade500,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        )
+                                      : Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${_peserta.length} Peserta Dipilih',
+                                              style: GoogleFonts.poppins(
+                                                color: Colors.black87,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: -10,
+                                              runSpacing: 4,
+                                              children: [
+                                                ..._peserta.take(7).map((participant) {
+                                                  final avatarUrl = participant['avatar']?.toString() ?? '';
+                                                  final bool isNetwork = avatarUrl.startsWith('http');
+                                                  
+                                                  return Container(
+                                                    width: 36,
+                                                    height: 36,
+                                                    decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      border: Border.all(color: Colors.white, width: 2),
+                                                      color: participant['color'] ?? Colors.grey.shade300,
+                                                      image: isNetwork 
+                                                        ? DecorationImage(
+                                                            image: NetworkImage(avatarUrl),
+                                                            fit: BoxFit.cover,
+                                                          ) 
+                                                        : null,
+                                                    ),
+                                                    child: !isNetwork && avatarUrl.isNotEmpty
+                                                      ? Center(child: Text(avatarUrl, style: const TextStyle(fontSize: 16)))
+                                                      : null,
+                                                  );
+                                                }), // <-- PERBAIKAN 3: Koma dihapus dari sini
+                                                
+                                                // Counter +N
+                                                if (_peserta.length > 7)
+                                                  Container(
+                                                    width: 36,
+                                                    height: 36,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.grey.shade200,
+                                                      shape: BoxShape.circle,
+                                                      border: Border.all(color: Colors.white, width: 2),
+                                                    ),
+                                                    child: Center(
+                                                      child: Text(
+                                                        '+${_peserta.length - 7}',
+                                                        style: GoogleFonts.poppins(
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: Colors.grey.shade700,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 48), // Jarak ke tombol submit
 
                         // Buat Tugas Button
                         SizedBox(
@@ -899,18 +864,17 @@ Row(
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Text(
+                                : Text(
                                     'Buat Tugas',
-                                    style: TextStyle(
+                                    style: GoogleFonts.poppins(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                       color: Colors.white,
-                                      fontFamily: 'Poppins',
                                     ),
                                   ),
                           ),
                         ),
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
